@@ -1,15 +1,40 @@
+#include <iostream>
 #include <stdexcept>
 
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_opengl.h>
+
+#include "asset.h"
+#include "render.h"
 
 const int WINDOW_WIDTH = 320;
 const int WINDOW_HEIGHT = 240;
 
-int main() {
+std::string get_asset_root() {
+    return std::getenv("ASSET_PATH");
+}
+
+void main_loop() {
+    auto resolver = std::unique_ptr<AssetResolver>(
+        new DirectoryAssetResolver(get_asset_root()));
+    AssetApi assets{std::move(resolver)};
+
+    std::string shader = assets.load_text("vertex.glsl");
+    std::cout << shader << std::endl;
+
+    SDL_Event event;
+    while (1) {
+        SDL_PollEvent(&event);
+        if (event.type == SDL_QUIT) {
+            break;
+        }
+    }
+}
+
+int sdl_main() {
     SDL_Window *window;
     SDL_Renderer *renderer;
     SDL_Surface *surface;
-    SDL_Event event;
     int result;
 
     result = SDL_Init(SDL_INIT_VIDEO);
@@ -23,20 +48,23 @@ int main() {
         throw std::runtime_error("Failed to create window");
     }
 
-    while (1) {
-        SDL_PollEvent(&event);
-        if (event.type == SDL_QUIT) {
-            break;
-        }
-        SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0x00);
-        SDL_RenderClear(renderer);
-        SDL_RenderPresent(renderer);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,
+                        SDL_GL_CONTEXT_PROFILE_CORE);
+    auto gl_context = SDL_GL_CreateContext(window);
+    if (!gl_context) {
+        throw std::runtime_error("Failed to create OpenGL context");
     }
 
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
+    main_loop();
 
+    SDL_DestroyWindow(window);
     SDL_Quit();
 
     return 0;
+}
+
+int main() {
+    sdl_main();
 }

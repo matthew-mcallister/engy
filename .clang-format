@@ -1,2 +1,6 @@
 BasedOnStyle: LLVM
 IndentWidth: 4
+AlwaysBreakTemplateDeclarations: Yes
+SpaceAfterTemplateKeyword: false
+AllowShortFunctionsOnASingleLine: Inline
+AccessModifierOffset: -4
