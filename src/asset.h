@@ -4,14 +4,13 @@
 #include <fstream>
 #include <memory>
 #include <span>
-#include <stdexcept>
 #include <string>
 #include <variant>
 #include <vector>
 
-typedef char byte;
+#include "exceptions.h"
 
-class ResolutionException : public std::runtime_error {};
+typedef char byte;
 
 struct AssetResolver {
     virtual std::vector<byte> resolve(const std::string &path) = 0;

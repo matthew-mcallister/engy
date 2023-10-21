@@ -1,12 +1,12 @@
 #include <iostream>
-#include <stdexcept>
 
 #include <SDL2/SDL.h>
-#include <SDL2/SDL_opengl.h>
 
 #include "asset.h"
+#include "exceptions.h"
 #include "render.h"
 
+const char *const WINDOW_TITLE = "engy";
 const int WINDOW_WIDTH = 320;
 const int WINDOW_HEIGHT = 240;
 
@@ -14,13 +14,11 @@ std::string get_asset_root() {
     return std::getenv("ASSET_PATH");
 }
 
-void main_loop() {
+void main_loop(SDL_Window *window) {
     auto resolver = std::unique_ptr<AssetResolver>(
         new DirectoryAssetResolver(get_asset_root()));
     AssetApi assets{std::move(resolver)};
-
-    std::string shader = assets.load_text("vertex.glsl");
-    std::cout << shader << std::endl;
+    Renderer renderer{assets};
 
     SDL_Event event;
     while (1) {
@@ -28,24 +26,25 @@ void main_loop() {
         if (event.type == SDL_QUIT) {
             break;
         }
+        renderer.render();
+        SDL_GL_SwapWindow(window);
     }
 }
 
 int sdl_main() {
     SDL_Window *window;
-    SDL_Renderer *renderer;
-    SDL_Surface *surface;
     int result;
 
     result = SDL_Init(SDL_INIT_VIDEO);
     if (result < 0) {
-        throw std::runtime_error("Failed to initialize SDL");
+        throw SystemException("Failed to initialize SDL");
     }
 
-    result = SDL_CreateWindowAndRenderer(
-        WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_RESIZABLE, &window, &renderer);
-    if (result) {
-        throw std::runtime_error("Failed to create window");
+    window = SDL_CreateWindow(
+        WINDOW_TITLE, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+        WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+    if (!window) {
+        throw SystemException("Failed to create window");
     }
 
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
@@ -54,10 +53,10 @@ int sdl_main() {
                         SDL_GL_CONTEXT_PROFILE_CORE);
     auto gl_context = SDL_GL_CreateContext(window);
     if (!gl_context) {
-        throw std::runtime_error("Failed to create OpenGL context");
+        throw SystemException("Failed to create OpenGL context");
     }
 
-    main_loop();
+    main_loop(window);
 
     SDL_DestroyWindow(window);
     SDL_Quit();
