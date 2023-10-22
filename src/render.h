@@ -6,6 +6,7 @@
 #include <GL/gl.h>
 
 #include "asset.h"
+#include "main.h"
 
 class Renderer {
     AssetApi &m_assets;
@@ -20,7 +21,7 @@ public:
     Renderer(AssetApi &assets);
     ~Renderer();
 
-    void render(float t);
+    void render(State &state);
 
 private:
     auto compileShader(const char *source_path, GLuint type) -> GLuint;

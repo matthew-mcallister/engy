@@ -1,4 +1,5 @@
 #include <cmath>
+#include <iomanip>
 #include <iostream>
 #include <string>
 
@@ -40,8 +41,6 @@ Renderer::Renderer(AssetApi &assets) : m_assets(assets) {
     glEnable(GL_DEPTH_TEST);
     glClearDepth(0);
     glDepthFunc(GL_GEQUAL);
-    // glClearDepth(1);
-    // glDepthFunc(GL_LEQUAL);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     GLuint depthRenderbuffer;
@@ -141,23 +140,16 @@ auto Renderer::linkProgram(std::span<GLuint> shaders) -> GLuint {
     return program;
 }
 
-Matrix4 get_view(float t) {
-    auto center = vec3(0.5, 0.289, 0.204);
-    auto theta = pi * t / 2;
-    auto offset = vec3(cos(theta), sin(theta), 0.6);
-    return scene::targeting_camera_xform(center + offset, center);
-}
-
 Matrix4 get_projection() {
     float aspect = static_cast<float>(WINDOW_WIDTH) / WINDOW_HEIGHT;
     return scene::projection(FOVY, aspect, Z_NEAR, Z_FAR);
 }
 
-void Renderer::render(float t) {
+void Renderer::render(State &state) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    auto view = get_view(t);
     auto proj = get_projection();
+    auto view = state.rig().transform();
     ViewUniforms view_uniforms{proj, view};
     glBindBuffer(GL_UNIFORM_BUFFER, m_uniform_buffer);
     glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(view_uniforms),

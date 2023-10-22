@@ -1,5 +1,7 @@
+#include <cassert>
 #include <cmath>
 
+#include "config.h"
 #include "math/matrix.h"
 #include "math/scene.h"
 #include "math/vector.h"
@@ -40,6 +42,24 @@ Matrix4 targeting_camera_xform(Vector3 pos, Vector3 target) {
 
 Matrix4 looking_camera_xform(Vector3 pos, Vector3 direction) {
     return looking_basis(direction).offset(pos).rigid_inverse();
+}
+
+Matrix4 pilot_angles_xform(float yaw, float pitch, float roll) {
+    // clang-format off
+    Matrix4 rot1{{1, 0,           0,          0},
+                 {0, cosf(roll), -sinf(roll), 0},
+                 {0, sinf(roll),  cosf(roll), 0},
+                 {0, 0,           0,          1}};
+    Matrix4 rot2{{ cosf(pitch), 0, -sinf(pitch), 0},
+                 { 0,           1,  0,           0},
+                 { sinf(pitch), 0,  cosf(pitch), 0},
+                 { 0,           0,  0,           1}};
+    Matrix4 rot3{{ cosf(yaw), sinf(yaw), 0, 0},
+                 {-sinf(yaw), cosf(yaw), 0, 0},
+                 { 0,         0,         1, 0},
+                 { 0,         0,         0, 1}};
+    return rot3 * rot2 * rot1;
+    // clang-format on
 }
 
 } // namespace scene

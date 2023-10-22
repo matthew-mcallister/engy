@@ -5,8 +5,9 @@ gl = dependency('gl')
 
 executable(
     'engy',
-    'src/main.cpp',
     'src/asset.cpp',
+    'src/camera.cpp',
+    'src/main.cpp',
     'src/render.cpp',
     'src/math/matrix.cpp',
     'src/math/scene.cpp',

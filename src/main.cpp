@@ -4,6 +4,7 @@
 #include <SDL2/SDL.h>
 
 #include "asset.h"
+#include "camera.h"
 #include "config.h"
 #include "exceptions.h"
 #include "render.h"
@@ -12,11 +13,39 @@ std::string get_asset_root() {
     return std::getenv("ASSET_PATH");
 }
 
+void State::handle_event(const SDL_Event &event) {
+    const auto mouse_buttons = SDL_GetMouseState(nullptr, nullptr);
+    const auto keyboard_state = SDL_GetKeyboardState(nullptr);
+    switch (event.type) {
+    case SDL_MOUSEMOTION: {
+        bool dragging = !!(mouse_buttons & SDL_BUTTON(2));
+        if (dragging) {
+            EditorCameraRig::Mode mode;
+            if (keyboard_state[SDL_SCANCODE_LSHIFT] == SDL_PRESSED ||
+                keyboard_state[SDL_SCANCODE_RSHIFT] == SDL_PRESSED) {
+                mode = EditorCameraRig::PAN;
+            } else {
+                mode = EditorCameraRig::PIVOT;
+            }
+            m_rig.on_mouse_drag(event.motion.xrel, event.motion.yrel, mode);
+        }
+        break;
+    }
+    case SDL_MOUSEWHEEL:
+        m_rig.on_mouse_scroll(event.wheel.preciseY);
+        break;
+    }
+}
+
 void main_loop(SDL_Window *window) {
     auto resolver = std::unique_ptr<AssetResolver>(
         new DirectoryAssetResolver(get_asset_root()));
     AssetApi assets{std::move(resolver)};
     Renderer renderer{assets};
+
+    State state;
+    state.rig().focus = vec3(0.5, 0.289, 0.204);
+    state.rig().log_distance = 0.5;
 
     auto start = std::chrono::steady_clock::now();
     while (1) {
@@ -25,11 +54,12 @@ void main_loop(SDL_Window *window) {
             if (event.type == SDL_QUIT) {
                 return;
             }
+            state.handle_event(event);
         }
 
         auto now = std::chrono::steady_clock::now();
         std::chrono::duration<float> dt = now - start;
-        renderer.render(dt.count());
+        renderer.render(state);
         SDL_GL_SwapWindow(window);
     }
 }

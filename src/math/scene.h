@@ -25,6 +25,10 @@ Matrix4 targeting_camera_xform(Vector3 pos, Vector3 target);
 /// looking in direction.
 Matrix4 looking_camera_xform(Vector3 pos, Vector3 direction);
 
+/// @brief Constructs an Euler rotation matrix using the pilot's angle
+/// convention.
+Matrix4 pilot_angles_xform(float yaw, float pitch, float roll);
+
 } // namespace scene
 
 #endif

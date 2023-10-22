@@ -14,6 +14,15 @@ struct Matrix4 {
     Matrix4() = default;
     Matrix4(Vector4 x, Vector4 y, Vector4 z, Vector4 w) : columns{x, y, z, w} {}
 
+    static Matrix4 identity() {
+        return {
+            {1, 0, 0, 0},
+            {0, 1, 0, 0},
+            {0, 0, 1, 0},
+            {0, 0, 0, 1},
+        };
+    }
+
     Vector4 operator[](int index) const { return columns[index]; }
     Vector4 &operator[](int index) { return columns[index]; }
 
@@ -43,8 +52,8 @@ struct Matrix4 {
     }
 
     Matrix4 operator*(Matrix4 other) const {
-        return Matrix4(columns[0] * other[0], columns[1] * other[1],
-                       columns[2] * other[2], columns[3] * other[3]);
+        return Matrix4(*this * other[0], *this * other[1], *this * other[2],
+                       *this * other[3]);
     }
 
     Matrix4 operator/(float s) const {
