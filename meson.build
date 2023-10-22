@@ -8,6 +8,9 @@ executable(
     'src/main.cpp',
     'src/asset.cpp',
     'src/render.cpp',
+    'src/math/matrix.cpp',
+    'src/math/scene.cpp',
     dependencies: [sdl2, gl],
-    cpp_args: ['-std=c++20', '-DGL_GLEXT_PROTOTYPES'],
+    include_directories: [include_directories('src')],
+    cpp_args: ['-std=c++20', '-DGL_GLEXT_PROTOTYPES', '-msse4.1'],
 )

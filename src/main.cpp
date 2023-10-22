@@ -1,14 +1,12 @@
+#include <chrono>
 #include <iostream>
 
 #include <SDL2/SDL.h>
 
 #include "asset.h"
+#include "config.h"
 #include "exceptions.h"
 #include "render.h"
-
-const char *const WINDOW_TITLE = "engy";
-const int WINDOW_WIDTH = 320;
-const int WINDOW_HEIGHT = 240;
 
 std::string get_asset_root() {
     return std::getenv("ASSET_PATH");
@@ -20,13 +18,18 @@ void main_loop(SDL_Window *window) {
     AssetApi assets{std::move(resolver)};
     Renderer renderer{assets};
 
-    SDL_Event event;
+    auto start = std::chrono::steady_clock::now();
     while (1) {
-        SDL_PollEvent(&event);
-        if (event.type == SDL_QUIT) {
-            break;
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                return;
+            }
         }
-        renderer.render();
+
+        auto now = std::chrono::steady_clock::now();
+        std::chrono::duration<float> dt = now - start;
+        renderer.render(dt.count());
         SDL_GL_SwapWindow(window);
     }
 }
