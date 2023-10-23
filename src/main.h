@@ -7,12 +7,15 @@
 
 class State {
     EditorCameraRig m_rig;
+    bool m_highlight;
 
 public:
     State() = default;
 
     EditorCameraRig &rig() { return m_rig; }
     const EditorCameraRig &rig() const { return m_rig; }
+    bool &highlight() { return m_highlight; }
+    const bool &highlight() const { return m_highlight; }
 
     void handle_event(const SDL_Event &event);
 };

@@ -7,11 +7,14 @@
 #include "math/scene.h"
 #include "math/vector.h"
 
-Matrix4 EditorCameraRig::transform() const {
+Matrix4 EditorCameraRig::forward_transform() const {
     auto rot = scene::pilot_angles_xform(yaw, pitch, 0);
     auto offset = focus + rot[0] * expf(log_distance);
-    Matrix4 xform{rot[1], -rot[2], -rot[0], offset.xyz1()};
-    return xform.rigid_inverse();
+    return Matrix4{rot[1], -rot[2], -rot[0], offset.xyz1()};
+}
+
+Matrix4 EditorCameraRig::reverse_transform() const {
+    return forward_transform().rigid_inverse();
 }
 
 void EditorCameraRig::on_mouse_drag(float dx, float dy,

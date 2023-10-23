@@ -19,7 +19,8 @@ struct EditorCameraRig {
 
     EditorCameraRig() : focus{0, 0, 0, 0}, log_distance{0}, yaw{0}, pitch{0} {}
 
-    Matrix4 transform() const;
+    Matrix4 forward_transform() const;
+    Matrix4 reverse_transform() const;
     void on_mouse_drag(float dx, float dy, Mode mode);
     void on_mouse_scroll(float dx);
 };

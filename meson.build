@@ -9,6 +9,7 @@ executable(
     'src/camera.cpp',
     'src/main.cpp',
     'src/render.cpp',
+    'src/math/aabb.cpp',
     'src/math/matrix.cpp',
     'src/math/scene.cpp',
     dependencies: [sdl2, gl],

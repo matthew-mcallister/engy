@@ -7,6 +7,8 @@
 #include "camera.h"
 #include "config.h"
 #include "exceptions.h"
+#include "math/aabb.h"
+#include "math/vector.h"
 #include "render.h"
 
 std::string get_asset_root() {
@@ -37,6 +39,24 @@ void State::handle_event(const SDL_Event &event) {
     }
 }
 
+/// @brief Returns a view-space vector representing where the cursor is
+/// pointing.
+///
+/// When the cursor is on the screen, its location represents a
+/// direction in space relative to the current camera. This function
+/// returns that vector in view space, which can be transformed into
+/// world space using the camera matrix.
+Vector3 get_cursor_vector() {
+    int x, y;
+    SDL_GetMouseState(&x, &y);
+    float aspect_ratio = (float)WINDOW_WIDTH / WINDOW_HEIGHT;
+    float vy = 2 * tan(FOVY) * ((float)y - (float)WINDOW_HEIGHT / 2.0) /
+               (float)WINDOW_HEIGHT;
+    float vx = 2 * aspect_ratio * tan(FOVY) *
+               ((float)x - (float)WINDOW_WIDTH / 2.0) / (float)WINDOW_WIDTH;
+    return vec3(vx, vy, 1).normalized();
+}
+
 void main_loop(SDL_Window *window) {
     auto resolver = std::unique_ptr<AssetResolver>(
         new DirectoryAssetResolver(get_asset_root()));
@@ -44,8 +64,10 @@ void main_loop(SDL_Window *window) {
     Renderer renderer{assets};
 
     State state;
-    state.rig().focus = vec3(0.5, 0.289, 0.204);
+    state.rig().focus = vec3(0.5, 0.5, 0.5);
     state.rig().log_distance = 0.5;
+
+    AABB3 aabb{vec3(0), vec3(1)};
 
     auto start = std::chrono::steady_clock::now();
     while (1) {
@@ -58,6 +80,12 @@ void main_loop(SDL_Window *window) {
         }
 
         auto now = std::chrono::steady_clock::now();
+
+        auto vec = get_cursor_vector();
+        auto xform = state.rig().forward_transform();
+        auto result = aabb.intersect_ray(xform[3], xform * vec);
+        state.highlight() = result.intersects;
+
         std::chrono::duration<float> dt = now - start;
         renderer.render(state);
         SDL_GL_SwapWindow(window);

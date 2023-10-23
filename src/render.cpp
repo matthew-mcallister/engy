@@ -18,28 +18,82 @@ using std::numbers::pi;
 
 // clang-format off
 float VERTICES[] = {
-    0, 0, 0, 1, 0, 0,
-    1, 0, 0, 0, 1, 0,
-    0.5, 0.867, 0, 0, 0, 1,
-    0.5, 0.289, 0.816, 1, 1, 0,
+    // -z
+    0, 0, 0, 0, 0, -1,
+    1, 0, 0, 0, 0, -1,
+    0, 1, 0, 0, 0, -1,
+    1, 1, 0, 0, 0, -1,
+    // +z
+    0, 0, 1, 0, 0, 1,
+    1, 0, 1, 0, 0, 1,
+    0, 1, 1, 0, 0, 1,
+    1, 1, 1, 0, 0, 1,
+    // -y
+    0, 0, 0, 0, -1, 0,
+    1, 0, 0, 0, -1, 0,
+    0, 0, 1, 0, -1, 0,
+    1, 0, 1, 0, -1, 0,
+    // +y
+    0, 1, 0, 0, 1, 0,
+    1, 1, 0, 0, 1, 0,
+    0, 1, 1, 0, 1, 0,
+    1, 1, 1, 0, 1, 0,
+    // -x
+    0, 0, 0, -1, 0, 0,
+    0, 1, 0, -1, 0, 0,
+    0, 0, 1, -1, 0, 0,
+    0, 1, 1, -1, 0, 0,
+    // +x
+    1, 0, 0, 1, 0, 0,
+    1, 1, 0, 1, 0, 0,
+    1, 0, 1, 1, 0, 0,
+    1, 1, 1, 1, 0, 0,
 };
 int INDICES[] = {
+    // -z
     0, 1, 2,
     0, 3, 1,
     0, 3, 2,
-    1, 3, 2
+    1, 3, 2,
+    // +z
+    4, 5, 6,
+    4, 7, 5,
+    4, 7, 6,
+    5, 7, 6,
+    // -y
+    8, 9,  10,
+    8, 11, 9,
+    8, 11, 10,
+    9, 11, 10,
+    // +y
+    12, 13, 14,
+    12, 15, 13,
+    12, 15, 14,
+    13, 15, 14,
+    // -x
+    16, 17, 18,
+    16, 19, 17,
+    16, 19, 18,
+    17, 19, 18,
+    // +x
+    20, 21, 23,
+    20, 22, 21,
+    20, 22, 23,
+    21, 22, 23,
 };
 // clang-format on
 
 struct ViewUniforms {
     Matrix4 projection;
     Matrix4 view;
+    Vector4 highlight;
 };
 
 Renderer::Renderer(AssetApi &assets) : m_assets(assets) {
     glClipControl(GL_UPPER_LEFT, GL_ZERO_TO_ONE);
     glEnable(GL_DEPTH_TEST);
     glClearDepth(0);
+    glClearColor(0.3, 0.3, 0.3, 0.0);
     glDepthFunc(GL_GEQUAL);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -149,13 +203,17 @@ void Renderer::render(State &state) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     auto proj = get_projection();
-    auto view = state.rig().transform();
-    ViewUniforms view_uniforms{proj, view};
+    auto view = state.rig().reverse_transform();
+    Vector4 highlight;
+    if (state.highlight()) {
+        highlight = vec4(0.3, 0.15, 0, 0);
+    }
+    ViewUniforms view_uniforms{proj, view, highlight};
     glBindBuffer(GL_UNIFORM_BUFFER, m_uniform_buffer);
     glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(view_uniforms),
                     &view_uniforms);
 
     glUseProgram(m_program);
     glBindVertexArray(m_vao);
-    glDrawElements(GL_TRIANGLES, 12, GL_UNSIGNED_INT, nullptr);
+    glDrawElements(GL_TRIANGLES, 72, GL_UNSIGNED_INT, nullptr);
 }

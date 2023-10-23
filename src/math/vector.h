@@ -15,6 +15,9 @@ inline __m128 dot(__m128 a, __m128 b) {
 
 } // namespace detail
 
+class Vector4;
+typedef Vector4 Vector3;
+
 /// @brief SIMD-backed 4-vector
 struct Vector4 {
     __m128 data;
@@ -85,6 +88,21 @@ struct Vector4 {
     Vector4 cross(Vector4 other) const {
         return yzxw() * other.zxyw() - zxyw() * other.yzxw();
     }
+
+    Vector4 min(Vector4 other) const { return _mm_min_ps(data, other.data); }
+    Vector4 max(Vector4 other) const { return _mm_max_ps(data, other.data); }
+
+    // TODO: Replace once Vector3 is implemented
+    bool lt3(Vector3 other) const {
+        int cmp = _mm_movemask_ps(_mm_cmplt_ps(data, other.data));
+        return (cmp & 0b111) == 0b111;
+    }
+    bool le3(Vector3 other) const {
+        int cmp = _mm_movemask_ps(_mm_cmple_ps(data, other.data));
+        return (cmp & 0b111) == 0b111;
+    }
+    bool gt3(Vector3 other) const { return !le3(other); }
+    bool ge3(Vector3 other) const { return !lt3(other); }
 };
 
 inline Vector4 operator+(float scalar, Vector4 vector) {
@@ -103,8 +121,6 @@ inline Vector4 operator/(float scalar, Vector4 vector) {
     return Vector4{scalar} / vector;
 }
 
-typedef Vector4 Vector3;
-
 inline Vector4 vec4() {
     return {};
 }
@@ -117,15 +133,15 @@ inline Vector4 vec4(float x, float y, float z, float w) {
     return {x, y, z, w};
 }
 
-inline Vector4 vec3() {
+inline Vector3 vec3() {
     return {0};
 }
 
-inline Vector4 vec3(float s) {
+inline Vector3 vec3(float s) {
     return {s, s, s, 0};
 }
 
-inline Vector4 vec3(float x, float y, float z) {
+inline Vector3 vec3(float x, float y, float z) {
     return {x, y, z, 0};
 }
 
