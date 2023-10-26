@@ -7,7 +7,7 @@
 
 class State {
     EditorCameraRig m_rig;
-    bool m_highlight;
+    bool m_highlight = false;
 
 public:
     State() = default;

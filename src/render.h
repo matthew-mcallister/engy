@@ -6,26 +6,24 @@
 #include <GL/gl.h>
 
 #include "asset.h"
+#include "chunk.h"
 #include "main.h"
 
 class Renderer {
     AssetApi &m_assets;
 
-    GLuint m_vertex_buffer;
-    GLuint m_index_buffer;
     GLuint m_uniform_buffer;
-    GLuint m_vao;
     GLuint m_program;
+
+    auto compileShader(const char *source_path, GLuint type) -> GLuint;
+    auto linkProgram(std::span<GLuint> shaders) -> GLuint;
 
 public:
     Renderer(AssetApi &assets);
     ~Renderer();
 
-    void render(State &state);
-
-private:
-    auto compileShader(const char *source_path, GLuint type) -> GLuint;
-    auto linkProgram(std::span<GLuint> shaders) -> GLuint;
+    void prepare_frame(State &state);
+    void render_chunk(const Chunk &chunk);
 };
 
 #endif

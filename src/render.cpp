@@ -1,6 +1,7 @@
 #include <cmath>
 #include <iomanip>
 #include <iostream>
+#include <span>
 #include <string>
 
 #include <GL/gl.h>
@@ -115,25 +116,6 @@ Renderer::Renderer(AssetApi &assets) : m_assets(assets) {
     std::array<GLuint, 2> shaders{vertex_shader, fragment_shader};
     m_program = linkProgram(shaders);
 
-    glGenVertexArrays(1, &m_vao);
-    glBindVertexArray(m_vao);
-
-    glGenBuffers(1, &m_vertex_buffer);
-    glBindBuffer(GL_ARRAY_BUFFER, m_vertex_buffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(VERTICES), VERTICES, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), nullptr);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float),
-                          (GLvoid *)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-
-    glGenBuffers(1, &m_index_buffer);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_index_buffer);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(INDICES), INDICES,
-                 GL_STATIC_DRAW);
-
-    glBindVertexArray(0);
-
     glGenBuffers(1, &m_uniform_buffer);
     glBindBuffer(GL_UNIFORM_BUFFER, m_uniform_buffer);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(ViewUniforms), nullptr,
@@ -147,9 +129,6 @@ Renderer::Renderer(AssetApi &assets) : m_assets(assets) {
 
 Renderer::~Renderer() {
     glDeleteProgram(m_program);
-    glDeleteVertexArrays(1, &m_vao);
-    glDeleteBuffers(1, &m_vertex_buffer);
-    glDeleteBuffers(1, &m_index_buffer);
     glDeleteBuffers(1, &m_uniform_buffer);
 }
 
@@ -199,7 +178,7 @@ Matrix4 get_projection() {
     return scene::projection(FOVY, aspect, Z_NEAR, Z_FAR);
 }
 
-void Renderer::render(State &state) {
+void Renderer::prepare_frame(State &state) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     auto proj = get_projection();
@@ -212,8 +191,9 @@ void Renderer::render(State &state) {
     glBindBuffer(GL_UNIFORM_BUFFER, m_uniform_buffer);
     glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(view_uniforms),
                     &view_uniforms);
+}
 
+void Renderer::render_chunk(const Chunk &chunk) {
     glUseProgram(m_program);
-    glBindVertexArray(m_vao);
-    glDrawElements(GL_TRIANGLES, 72, GL_UNSIGNED_INT, nullptr);
+    chunk.draw();
 }

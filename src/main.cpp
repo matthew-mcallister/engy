@@ -57,6 +57,23 @@ Vector3 get_cursor_vector() {
     return vec3(vx, vy, 1).normalized();
 }
 
+void initialize_chunk(Chunk &chunk) {
+    auto &blocks = chunk.data().blocks;
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            for (int k = 0; k < 8; k++) {
+                int counter = i + j + k;
+                if (i % 2 == 0 && j % 2 == 0 && k % 2 == 0) {
+                    counter += 1;
+                }
+                bool solid = counter <= 8;
+                blocks[i][j][k].type =
+                    solid ? block_type::SOLID : block_type::EMPTY;
+            }
+        }
+    }
+}
+
 void main_loop(SDL_Window *window) {
     auto resolver = std::unique_ptr<AssetResolver>(
         new DirectoryAssetResolver(get_asset_root()));
@@ -64,10 +81,12 @@ void main_loop(SDL_Window *window) {
     Renderer renderer{assets};
 
     State state;
-    state.rig().focus = vec3(0.5, 0.5, 0.5);
-    state.rig().log_distance = 0.5;
+    state.rig().focus = vec3(4, 4, 4);
+    state.rig().log_distance = 1.2;
 
-    AABB3 aabb{vec3(0), vec3(1)};
+    Chunk chunk;
+    initialize_chunk(chunk);
+    chunk.update_mesh();
 
     auto start = std::chrono::steady_clock::now();
     while (1) {
@@ -81,13 +100,9 @@ void main_loop(SDL_Window *window) {
 
         auto now = std::chrono::steady_clock::now();
 
-        auto vec = get_cursor_vector();
-        auto xform = state.rig().forward_transform();
-        auto result = aabb.intersect_ray(xform[3], xform * vec);
-        state.highlight() = result.intersects;
-
         std::chrono::duration<float> dt = now - start;
-        renderer.render(state);
+        renderer.prepare_frame(state);
+        renderer.render_chunk(chunk);
         SDL_GL_SwapWindow(window);
     }
 }
