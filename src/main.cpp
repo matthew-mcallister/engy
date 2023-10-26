@@ -17,26 +17,26 @@ std::string get_asset_root() {
 
 void State::handle_event(const SDL_Event &event) {
     const auto mouse_buttons = SDL_GetMouseState(nullptr, nullptr);
-    const auto keyboard_state = SDL_GetKeyboardState(nullptr);
+    const auto *keyboard_state = SDL_GetKeyboardState(nullptr);
     switch (event.type) {
     case SDL_MOUSEMOTION: {
         bool dragging = !!(mouse_buttons & SDL_BUTTON(2));
+        auto dx = event.motion.xrel, dy = event.motion.yrel;
         if (dragging) {
-            EditorCameraRig::Mode mode;
-            if (keyboard_state[SDL_SCANCODE_LSHIFT] == SDL_PRESSED ||
-                keyboard_state[SDL_SCANCODE_RSHIFT] == SDL_PRESSED) {
-                mode = EditorCameraRig::PAN;
-            } else {
-                mode = EditorCameraRig::PIVOT;
-            }
-            m_rig.on_mouse_drag(event.motion.xrel, event.motion.yrel, mode);
+            m_rig->on_mouse_drag(dx, dy, keyboard_state);
+        } else {
+            m_rig->on_mouse_move(dx, dy);
         }
         break;
     }
     case SDL_MOUSEWHEEL:
-        m_rig.on_mouse_scroll(event.wheel.preciseY);
+        m_rig->on_mouse_scroll(event.wheel.preciseY);
         break;
     }
+}
+
+void State::ticker(const uint8_t *keystate) {
+    m_rig->ticker(keystate);
 }
 
 /// @brief Returns a view-space vector representing where the cursor is
@@ -80,9 +80,12 @@ void main_loop(SDL_Window *window) {
     AssetApi assets{std::move(resolver)};
     Renderer renderer{assets};
 
-    State state;
-    state.rig().focus = vec3(4, 4, 4);
-    state.rig().log_distance = 1.2;
+    if (SDL_SetRelativeMouseMode(SDL_TRUE)) {
+        throw SystemException("Failed to capture mouse");
+    }
+
+    std::unique_ptr<FirstPersonCameraRig> rig{new FirstPersonCameraRig()};
+    State state{std::move(rig)};
 
     Chunk chunk;
     initialize_chunk(chunk);
@@ -97,6 +100,8 @@ void main_loop(SDL_Window *window) {
             }
             state.handle_event(event);
         }
+        const auto *keystate = SDL_GetKeyboardState(nullptr);
+        state.ticker(keystate);
 
         auto now = std::chrono::steady_clock::now();
 

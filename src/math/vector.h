@@ -48,27 +48,27 @@ struct Vector4 {
     Vector4 operator+(Vector4 other) const {
         return Vector4(_mm_add_ps(data, other.data));
     }
-
     Vector4 operator+(float scalar) const { return *this + Vector4{scalar}; }
+    Vector4 &operator+=(Vector4 other) { return *this = *this + other; }
 
     Vector4 operator-(Vector4 other) const {
         return Vector4(_mm_sub_ps(data, other.data));
     }
-
     Vector4 operator-(float scalar) const { return *this - Vector4{scalar}; }
     Vector4 operator-() const { return -data; }
+    Vector4 &operator-=(Vector4 other) { return *this = *this - other; }
 
     Vector4 operator*(Vector4 other) const {
         return Vector4(_mm_mul_ps(data, other.data));
     }
-
     Vector4 operator*(float scalar) const { return *this * Vector4{scalar}; }
+    Vector4 &operator*=(Vector4 other) { return *this = *this * other; }
 
     Vector4 operator/(Vector4 other) const {
         return Vector4(_mm_div_ps(data, other.data));
     }
-
     Vector4 operator/(float scalar) const { return *this / Vector4{scalar}; }
+    Vector4 &operator/=(Vector4 other) { return *this = *this / other; }
 
     float dot(Vector4 other) const { return detail::dot(data, other.data)[0]; }
 
