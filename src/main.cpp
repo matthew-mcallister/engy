@@ -32,6 +32,11 @@ void State::handle_event(const SDL_Event &event) {
     case SDL_MOUSEWHEEL:
         m_rig->on_mouse_scroll(event.wheel.preciseY);
         break;
+    case SDL_KEYDOWN:
+        if (keyboard_state[SDL_SCANCODE_ESCAPE] == SDL_PRESSED) {
+            SDL_SetRelativeMouseMode(SDL_FALSE);
+        }
+        break;
     }
 }
 
@@ -57,23 +62,6 @@ Vector3 get_cursor_vector() {
     return vec3(vx, vy, 1).normalized();
 }
 
-void initialize_chunk(Chunk &chunk) {
-    auto &blocks = chunk.data().blocks;
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
-            for (int k = 0; k < 8; k++) {
-                int counter = i + j + k;
-                if (i % 2 == 0 && j % 2 == 0 && k % 2 == 0) {
-                    counter += 1;
-                }
-                bool solid = counter <= 8;
-                blocks[i][j][k].type =
-                    solid ? block_type::SOLID : block_type::EMPTY;
-            }
-        }
-    }
-}
-
 void main_loop(SDL_Window *window) {
     auto resolver = std::unique_ptr<AssetResolver>(
         new DirectoryAssetResolver(get_asset_root()));
@@ -87,9 +75,21 @@ void main_loop(SDL_Window *window) {
     std::unique_ptr<FirstPersonCameraRig> rig{new FirstPersonCameraRig()};
     State state{std::move(rig)};
 
-    Chunk chunk;
-    initialize_chunk(chunk);
-    chunk.update_mesh();
+    ChunkMap chunk_map;
+    for (int i = -2; i <= 2; i++) {
+        for (int j = -2; j <= 2; j++) {
+            for (int k = -2; k <= 2; k++) {
+                chunk_map.generate_chunk({i, j, k});
+            }
+        }
+    }
+    for (int i = -1; i <= 1; i++) {
+        for (int j = -1; j <= 1; j++) {
+            for (int k = -1; k <= 1; k++) {
+                chunk_map.update_mesh({i, j, k});
+            }
+        }
+    }
 
     auto start = std::chrono::steady_clock::now();
     while (1) {
@@ -107,7 +107,13 @@ void main_loop(SDL_Window *window) {
 
         std::chrono::duration<float> dt = now - start;
         renderer.prepare_frame(state);
-        renderer.render_chunk(chunk);
+        for (int i = -1; i <= 1; i++) {
+            for (int j = -1; j <= 1; j++) {
+                for (int k = -1; k <= 1; k++) {
+                    renderer.render_chunk(chunk_map[{i, j, k}]);
+                }
+            }
+        }
         SDL_GL_SwapWindow(window);
     }
 }

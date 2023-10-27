@@ -3,9 +3,13 @@
 #endif
 
 #include <cassert>
+#include <cmath>
+#include <numbers>
 #include <vector>
 
 #include "chunk.h"
+
+using std::numbers::pi;
 
 bool Block::is_solid() const {
     return type == block_type::SOLID;
@@ -32,12 +36,14 @@ ChunkMesh::ChunkMesh() {
 }
 
 ChunkMesh::~ChunkMesh() {
-    GLuint buffers[] = {
-        m_vertex_buffer,
-        m_index_buffer,
-    };
-    glDeleteBuffers(2, &buffers[0]);
-    glDeleteVertexArrays(1, &m_vao);
+    if (m_vao) {
+        GLuint buffers[] = {
+            m_vertex_buffer,
+            m_index_buffer,
+        };
+        glDeleteBuffers(2, &buffers[0]);
+        glDeleteVertexArrays(1, &m_vao);
+    }
 }
 
 void ChunkMesh::update(const MeshData &data) {
@@ -66,131 +72,201 @@ void ChunkMesh::update(const MeshData &data) {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
-void ChunkMesh::draw() const {
+void ChunkMesh::draw(int instance_id) const {
     if (m_size == 0) {
         return;
     }
     glBindVertexArray(m_vao);
-    glDrawElements(GL_TRIANGLES, 3 * m_size, GL_UNSIGNED_INT, nullptr);
+    glDrawElementsInstancedBaseInstance(
+        GL_TRIANGLES, 3 * m_size, GL_UNSIGNED_INT, nullptr, 1, instance_id);
 }
 
-auto Chunk::generate_mesh() const -> MeshData {
+void Chunk::update_mesh(const MeshData &data) {
+    if (data.vertices.empty()) {
+        m_mesh.reset();
+        return;
+    }
+    if (!m_mesh) {
+        m_mesh = ChunkMesh();
+    }
+    m_mesh->update(data);
+}
+
+void Chunk::draw(int instance_id) const {
+    if (m_mesh) {
+        m_mesh->draw(instance_id);
+    }
+}
+
+struct ChunkMeshBuilder {
     std::vector<float> vertices;
     std::vector<int> indices;
+
+    ChunkMeshBuilder() = default;
+
+    int base_index() const { return vertices.size() / 6; }
+
+    void x_face_pos(int i, int j, int k) {
+        int i0 = base_index();
+        // clang-format off
+        vertices.insert(vertices.end(), {
+            i + 1, j,     k,     1, 0, 0,
+            i + 1, j + 1, k,     1, 0, 0,
+            i + 1, j,     k + 1, 1, 0, 0,
+            i + 1, j + 1, k + 1, 1, 0, 0,
+        });
+        indices.insert(indices.end(), {
+            i0, i0 + 1, i0 + 3,
+            i0, i0 + 3, i0 + 2,
+        });
+        // clang-format on
+    }
+
+    void x_face_neg(int i, int j, int k) {
+        int i0 = base_index();
+        // clang-format off
+        vertices.insert(vertices.end(), {
+            i + 1, j,     k,     -1, 0, 0,
+            i + 1, j + 1, k,     -1, 0, 0,
+            i + 1, j,     k + 1, -1, 0, 0,
+            i + 1, j + 1, k + 1, -1, 0, 0,
+        });
+        indices.insert(indices.end(), {
+            i0, i0 + 1, i0 + 3,
+            i0, i0 + 3, i0 + 2,
+        });
+        // clang-format on
+    }
+
+    void y_face_pos(int i, int j, int k) {
+        int i0 = base_index();
+        // clang-format off
+        vertices.insert(vertices.end(), {
+            i,     j + 1, k,     0, 1, 0,
+            i + 1, j + 1, k,     0, 1, 0,
+            i,     j + 1, k + 1, 0, 1, 0,
+            i + 1, j + 1, k + 1, 0, 1, 0,
+        });
+        indices.insert(indices.end(), {
+            i0, i0 + 1, i0 + 3,
+            i0, i0 + 3, i0 + 2,
+        });
+        // clang-format on
+    }
+
+    void y_face_neg(int i, int j, int k) {
+        int i0 = base_index();
+        // clang-format off
+        vertices.insert(vertices.end(), {
+            i,     j + 1, k,     0, -1, 0,
+            i + 1, j + 1, k,     0, -1, 0,
+            i,     j + 1, k + 1, 0, -1, 0,
+            i + 1, j + 1, k + 1, 0, -1, 0,
+        });
+        indices.insert(indices.end(), {
+            i0, i0 + 3, i0 + 1,
+            i0, i0 + 2, i0 + 3,
+        });
+        // clang-format on
+    }
+
+    void z_face_pos(int i, int j, int k) {
+        int i0 = base_index();
+        // clang-format off
+        vertices.insert(vertices.end(), {
+            i,     j,     k + 1, 0, 0, 1,
+            i + 1, j,     k + 1, 0, 0, 1,
+            i,     j + 1, k + 1, 0, 0, 1,
+            i + 1, j + 1, k + 1, 0, 0, 1,
+        });
+        indices.insert(indices.end(), {
+            i0, i0 + 1, i0 + 3,
+            i0, i0 + 3, i0 + 2,
+        });
+        // clang-format on
+    }
+
+    void z_face_neg(int i, int j, int k) {
+        int i0 = base_index();
+        // clang-format off
+        vertices.insert(vertices.end(), {
+            i,     j,     k + 1, 0, 0, -1,
+            i + 1, j,     k + 1, 0, 0, -1,
+            i,     j + 1, k + 1, 0, 0, -1,
+            i + 1, j + 1, k + 1, 0, 0, -1,
+        });
+        indices.insert(indices.end(), {
+            i0, i0 + 3, i0 + 1,
+            i0, i0 + 2, i0 + 3,
+        });
+        // clang-format on
+    }
+};
+
+auto generate_mesh(ChunkMap &map, ChunkPos pos) -> MeshData {
+    ChunkMeshBuilder builder;
+    const Chunk &chunk = map[pos];
+    const auto &blocks = chunk.data().blocks;
     for (int i = 0; i < 7; i++) {
         for (int j = 0; j < 7; j++) {
             for (int k = 0; k < 7; k++) {
-                const auto &block = m_data.blocks[i][j][k];
+                const auto &block = blocks[i][j][k];
 
-                const auto &x_neighbor = m_data.blocks[i + 1][j][k];
+                const auto &x_neighbor = blocks[i + 1][j][k];
                 if (block.is_solid() != x_neighbor.is_solid()) {
-                    int i0 = vertices.size() / 6;
                     if (block.is_solid()) {
-                        // clang-format off
-                        vertices.insert(vertices.end(), {
-                            i + 1, j,     k,     1, 0, 0,
-                            i + 1, j + 1, k,     1, 0, 0,
-                            i + 1, j,     k + 1, 1, 0, 0,
-                            i + 1, j + 1, k + 1, 1, 0, 0,
-                        });
-                        indices.insert(indices.end(), {
-                            i0, i0 + 1, i0 + 3,
-                            i0, i0 + 3, i0 + 2,
-                        });
-                        // clang-format on
+                        builder.x_face_pos(i, j, k);
                     } else {
-                        // clang-format off
-                        vertices.insert(vertices.end(), {
-                            i + 1, j,     k,     -1, 0, 0,
-                            i + 1, j + 1, k,     -1, 0, 0,
-                            i + 1, j,     k + 1, -1, 0, 0,
-                            i + 1, j + 1, k + 1, -1, 0, 0,
-                        });
-                        indices.insert(indices.end(), {
-                            i0, i0 + 3, i0 + 1,
-                            i0, i0 + 2, i0 + 3,
-                        });
-                        // clang-format on
+                        builder.x_face_neg(i, j, k);
                     }
                 }
 
-                const auto &y_neighbor = m_data.blocks[i][j + 1][k];
+                const auto &y_neighbor = blocks[i][j + 1][k];
                 if (block.is_solid() != y_neighbor.is_solid()) {
-                    int i0 = vertices.size() / 6;
                     if (block.is_solid()) {
-                        // clang-format off
-                        vertices.insert(vertices.end(), {
-                            i,     j + 1, k,     0, 1, 0,
-                            i + 1, j + 1, k,     0, 1, 0,
-                            i,     j + 1, k + 1, 0, 1, 0,
-                            i + 1, j + 1, k + 1, 0, 1, 0,
-                        });
-                        indices.insert(indices.end(), {
-                            i0, i0 + 1, i0 + 3,
-                            i0, i0 + 3, i0 + 2,
-                        });
-                        // clang-format on
+                        builder.y_face_pos(i, j, k);
                     } else {
-                        // clang-format off
-                        vertices.insert(vertices.end(), {
-                            i,     j + 1, k,     0, -1, 0,
-                            i + 1, j + 1, k,     0, -1, 0,
-                            i,     j + 1, k + 1, 0, -1, 0,
-                            i + 1, j + 1, k + 1, 0, -1, 0,
-                        });
-                        indices.insert(indices.end(), {
-                            i0, i0 + 3, i0 + 1,
-                            i0, i0 + 2, i0 + 3,
-                        });
-                        // clang-format on
+                        builder.y_face_neg(i, j, k);
                     }
                 }
 
-                const auto &z_neighbor = m_data.blocks[i][j][k + 1];
+                const auto &z_neighbor = blocks[i][j][k + 1];
                 if (block.is_solid() != z_neighbor.is_solid()) {
-                    int i0 = vertices.size() / 6;
                     if (block.is_solid()) {
-                        // clang-format off
-                        vertices.insert(vertices.end(), {
-                            i,     j,     k + 1, 0, 0, 1,
-                            i + 1, j,     k + 1, 0, 0, 1,
-                            i,     j + 1, k + 1, 0, 0, 1,
-                            i + 1, j + 1, k + 1, 0, 0, 1,
-                        });
-                        indices.insert(indices.end(), {
-                            i0, i0 + 1, i0 + 3,
-                            i0, i0 + 3, i0 + 2,
-                        });
-                        // clang-format on
+                        builder.z_face_pos(i, j, k);
                     } else {
-                        // clang-format off
-                        vertices.insert(vertices.end(), {
-                            i,     j,     k + 1, 0, 0, -1,
-                            i + 1, j,     k + 1, 0, 0, -1,
-                            i,     j + 1, k + 1, 0, 0, -1,
-                            i + 1, j + 1, k + 1, 0, 0, -1,
-                        });
-                        indices.insert(indices.end(), {
-                            i0, i0 + 3, i0 + 1,
-                            i0, i0 + 2, i0 + 3,
-                        });
-                        // clang-format on
+                        builder.z_face_neg(i, j, k);
                     }
                 }
             }
         }
     }
     return {
-        vertices,
-        indices,
+        std::move(builder.vertices),
+        std::move(builder.indices),
     };
 }
 
-void Chunk::update_mesh() {
-    const auto data = generate_mesh();
-    m_mesh.update(data);
+void ChunkMap::update_mesh(ChunkPos pos) {
+    const auto data = generate_mesh(*this, pos);
+    (*this)[pos].update_mesh(data);
 }
 
-void Chunk::draw() const {
-    m_mesh.draw();
+float f(float x, float y) {
+    return 4 + sinf(pi * x / 2) + sinf(pi * y / 2);
+}
+
+void ChunkMap::generate_chunk(ChunkPos pos) {
+    auto &chunk = (*this)[pos];
+    chunk.pos() = pos;
+    auto &blocks = chunk.data().blocks;
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            for (int k = 0; k < 8; k++) {
+                bool solid = 8 * pos.k + k <= f(i, j);
+                blocks[i][j][k].type =
+                    solid ? block_type::SOLID : block_type::EMPTY;
+            }
+        }
+    }
 }

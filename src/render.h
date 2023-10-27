@@ -15,6 +15,8 @@ class Renderer {
     GLuint m_uniform_buffer;
     GLuint m_program;
 
+    int m_instance_count = 0;
+
     auto compileShader(const char *source_path, GLuint type) -> GLuint;
     auto linkProgram(std::span<GLuint> shaders) -> GLuint;
 

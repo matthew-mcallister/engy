@@ -90,6 +90,11 @@ struct ViewUniforms {
     Vector4 highlight;
 };
 
+struct Uniforms {
+    ViewUniforms view_uniforms;
+    Matrix4 instance[512];
+};
+
 Renderer::Renderer(AssetApi &assets) : m_assets(assets) {
     glClipControl(GL_UPPER_LEFT, GL_ZERO_TO_ONE);
     glEnable(GL_DEPTH_TEST);
@@ -118,8 +123,7 @@ Renderer::Renderer(AssetApi &assets) : m_assets(assets) {
 
     glGenBuffers(1, &m_uniform_buffer);
     glBindBuffer(GL_UNIFORM_BUFFER, m_uniform_buffer);
-    glBufferData(GL_UNIFORM_BUFFER, sizeof(ViewUniforms), nullptr,
-                 GL_STREAM_DRAW);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(Uniforms), nullptr, GL_STREAM_DRAW);
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, m_uniform_buffer);
     glUniformBlockBinding(m_program, 0, 0);
 
@@ -179,6 +183,8 @@ Matrix4 get_projection() {
 }
 
 void Renderer::prepare_frame(State &state) {
+    m_instance_count = 0;
+
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     auto proj = get_projection();
@@ -191,9 +197,15 @@ void Renderer::prepare_frame(State &state) {
     glBindBuffer(GL_UNIFORM_BUFFER, m_uniform_buffer);
     glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(view_uniforms),
                     &view_uniforms);
+    glUseProgram(m_program);
 }
 
 void Renderer::render_chunk(const Chunk &chunk) {
-    glUseProgram(m_program);
-    chunk.draw();
+    auto instance = Matrix4::identity();
+    instance[3] = chunk.pos().offset();
+    glBufferSubData(GL_UNIFORM_BUFFER,
+                    sizeof(ViewUniforms) + sizeof(Matrix4) * m_instance_count,
+                    sizeof(Matrix4), &instance);
+    chunk.draw(m_instance_count);
+    m_instance_count++;
 }
