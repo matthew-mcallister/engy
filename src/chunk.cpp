@@ -207,11 +207,12 @@ auto generate_mesh(ChunkMap &map, ChunkPos pos) -> MeshData {
     ChunkMeshBuilder builder;
     const Chunk &chunk = map[pos];
     const auto &blocks = chunk.data().blocks;
-    for (int i = 0; i < 7; i++) {
-        for (int j = 0; j < 7; j++) {
-            for (int k = 0; k < 7; k++) {
-                const auto &block = blocks[i][j][k];
 
+    // YZ
+    for (int i = 0; i < 7; i++) {
+        for (int j = 0; j < 8; j++) {
+            for (int k = 0; k < 8; k++) {
+                const auto &block = blocks[i][j][k];
                 const auto &x_neighbor = blocks[i + 1][j][k];
                 if (block.is_solid() != x_neighbor.is_solid()) {
                     if (block.is_solid()) {
@@ -220,7 +221,30 @@ auto generate_mesh(ChunkMap &map, ChunkPos pos) -> MeshData {
                         builder.x_face_neg(i, j, k);
                     }
                 }
+            }
+        }
+    }
+    const auto &x_neighbor_blocks =
+        map[{pos.i - 1, pos.j, pos.k}].data().blocks;
+    for (int j = 0; j < 8; j++) {
+        for (int k = 0; k < 8; k++) {
+            const auto &block = x_neighbor_blocks[7][j][k];
+            const auto &x_neighbor = blocks[0][j][k];
+            if (block.is_solid() != x_neighbor.is_solid()) {
+                if (block.is_solid()) {
+                    builder.x_face_pos(-1, j, k);
+                } else {
+                    builder.x_face_neg(-1, j, k);
+                }
+            }
+        }
+    }
 
+    // ZX
+    for (int j = 0; j < 7; j++) {
+        for (int i = 0; i < 8; i++) {
+            for (int k = 0; k < 8; k++) {
+                const auto &block = blocks[i][j][k];
                 const auto &y_neighbor = blocks[i][j + 1][k];
                 if (block.is_solid() != y_neighbor.is_solid()) {
                     if (block.is_solid()) {
@@ -229,7 +253,30 @@ auto generate_mesh(ChunkMap &map, ChunkPos pos) -> MeshData {
                         builder.y_face_neg(i, j, k);
                     }
                 }
+            }
+        }
+    }
+    const auto &y_neighbor_blocks =
+        map[{pos.i, pos.j - 1, pos.k}].data().blocks;
+    for (int i = 0; i < 8; i++) {
+        for (int k = 0; k < 8; k++) {
+            const auto &block = y_neighbor_blocks[i][7][k];
+            const auto &y_neighbor = blocks[i][0][k];
+            if (block.is_solid() != y_neighbor.is_solid()) {
+                if (block.is_solid()) {
+                    builder.y_face_pos(i, -1, k);
+                } else {
+                    builder.y_face_neg(i, -1, k);
+                }
+            }
+        }
+    }
 
+    // XY
+    for (int k = 0; k < 7; k++) {
+        for (int i = 0; i < 8; i++) {
+            for (int j = 0; j < 8; j++) {
+                const auto &block = blocks[i][j][k];
                 const auto &z_neighbor = blocks[i][j][k + 1];
                 if (block.is_solid() != z_neighbor.is_solid()) {
                     if (block.is_solid()) {
@@ -241,6 +288,22 @@ auto generate_mesh(ChunkMap &map, ChunkPos pos) -> MeshData {
             }
         }
     }
+    const auto &z_neighbor_blocks =
+        map[{pos.i, pos.j, pos.k - 1}].data().blocks;
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            const auto &block = z_neighbor_blocks[i][j][7];
+            const auto &z_neighbor = blocks[i][j][0];
+            if (block.is_solid() != z_neighbor.is_solid()) {
+                if (block.is_solid()) {
+                    builder.z_face_pos(i, j, -1);
+                } else {
+                    builder.z_face_neg(i, j, -1);
+                }
+            }
+        }
+    }
+
     return {
         std::move(builder.vertices),
         std::move(builder.indices),
