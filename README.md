@@ -4,6 +4,8 @@ WIP gamedev stuff
 
 ## Building
 
+Requires a CPU that supports Intel SSE4.1 instructions.
+
 Prerequisites:
 
 - SDL2
