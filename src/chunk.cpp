@@ -7,12 +7,13 @@
 #include <numbers>
 #include <vector>
 
+#include "block.h"
 #include "chunk.h"
 
 using std::numbers::pi;
 
 bool Block::is_solid() const {
-    return type == block_type::SOLID;
+    return type != BlockType::Empty;
 }
 
 ChunkMesh::ChunkMesh() {
@@ -328,7 +329,7 @@ void ChunkMap::generate_chunk(ChunkPos pos) {
             for (int k = 0; k < 8; k++) {
                 bool solid = 8 * pos.k + k <= f(i, j);
                 blocks[i][j][k].type =
-                    solid ? block_type::SOLID : block_type::EMPTY;
+                    solid ? BlockType::Solid : BlockType::Empty;
             }
         }
     }

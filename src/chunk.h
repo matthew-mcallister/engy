@@ -9,26 +9,12 @@
 
 #include <GL/gl.h>
 
+#include "block.h"
 #include "math/vector.h"
-
-typedef int BlockType;
-
-namespace block_type {
-
-const BlockType EMPTY = 0;
-const BlockType SOLID = 1;
-
-} // namespace block_type
 
 struct MeshData {
     std::vector<float> vertices;
     std::vector<int> indices;
-};
-
-struct Block {
-    BlockType type;
-
-    bool is_solid() const;
 };
 
 class ChunkMesh {
