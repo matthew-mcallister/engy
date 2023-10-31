@@ -27,12 +27,29 @@ inline int format_size(PixelFormat format) {
     }
 }
 
+inline GLuint format_to_gl(PixelFormat format) {
+    switch (format) {
+    case PixelFormat::R8:
+        return GL_R;
+    case PixelFormat::Rg8:
+        return GL_RG;
+    case PixelFormat::Rgb8:
+        return GL_RGB;
+    case PixelFormat::Rgba8:
+        return GL_RGBA;
+    default:
+        abort();
+    }
+}
+
 class Image {
     std::vector<char> m_data;
     PixelFormat m_format;
     int m_width, m_height;
 
     Image() = default;
+
+    static Image _load(std::span<const char> data, bool as_rgba8);
 
 public:
     std::span<const char> data() const {
@@ -43,6 +60,7 @@ public:
     int height() const { return m_width; }
 
     static Image load(std::span<const char> data);
+    static Image load_rgba8(std::span<const char> data);
 };
 
 #endif

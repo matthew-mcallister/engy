@@ -15,6 +15,7 @@ executable(
     'src/math/aabb.cpp',
     'src/math/matrix.cpp',
     'src/math/scene.cpp',
+    'src/render/texture_map.cpp',
     dependencies: [gl, spng, sdl2],
     include_directories: [include_directories('src')],
     cpp_args: ['-std=c++20', '-DGL_GLEXT_PROTOTYPES', '-msse4.1', '-Wno-narrowing'],

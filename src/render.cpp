@@ -127,6 +127,12 @@ Renderer::Renderer(AssetApi &assets) : m_assets(assets) {
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, m_uniform_buffer);
     glUniformBlockBinding(m_program, 0, 0);
 
+    auto texture_map = m_texture_map.uniforms();
+    glBindBuffer(GL_UNIFORM_BUFFER, texture_map);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 1, texture_map);
+    glUniformBlockBinding(m_program, 1, 1);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
     glDeleteShader(vertex_shader);
     glDeleteShader(fragment_shader);
 }
@@ -208,4 +214,14 @@ void Renderer::render_chunk(const Chunk &chunk) {
                     sizeof(Matrix4), &instance);
     chunk.draw(m_instance_count);
     m_instance_count++;
+}
+
+uint16_t Renderer::make_image_resident(const std::string &path) {
+    const auto result = m_texture_map.get({path});
+    if (result) {
+        return *result;
+    }
+
+    auto image = Image::load(m_assets.load_blob(path));
+    return m_texture_map.upload(path, image);
 }

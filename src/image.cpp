@@ -1,5 +1,6 @@
 #include <cstdint>
 
+#include <GL/gl.h>
 #include <spng.h>
 
 #include "exceptions.h"

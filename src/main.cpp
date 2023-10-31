@@ -75,6 +75,8 @@ void main_loop(SDL_Window *window) {
     std::unique_ptr<FirstPersonCameraRig> rig{new FirstPersonCameraRig()};
     State state{std::move(rig)};
 
+    renderer.make_image_resident("blocks/dirt.png");
+
     ChunkMap chunk_map;
     for (int i = -2; i <= 2; i++) {
         for (int j = -2; j <= 2; j++) {
