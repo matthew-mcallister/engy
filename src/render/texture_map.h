@@ -20,7 +20,7 @@ struct TextureMapEntry {
     ~TextureMapEntry();
 };
 
-const size_t TEXTURE_MAP_MAX_ENTRIES = 8192;
+const size_t TEXTURE_MAP_MAX_ENTRIES = 4096;
 
 class TextureMap {
     std::vector<TextureMapEntry> m_entries;

@@ -17,73 +17,6 @@
 using namespace std::literals;
 using std::numbers::pi;
 
-// clang-format off
-float VERTICES[] = {
-    // -z
-    0, 0, 0, 0, 0, -1,
-    1, 0, 0, 0, 0, -1,
-    0, 1, 0, 0, 0, -1,
-    1, 1, 0, 0, 0, -1,
-    // +z
-    0, 0, 1, 0, 0, 1,
-    1, 0, 1, 0, 0, 1,
-    0, 1, 1, 0, 0, 1,
-    1, 1, 1, 0, 0, 1,
-    // -y
-    0, 0, 0, 0, -1, 0,
-    1, 0, 0, 0, -1, 0,
-    0, 0, 1, 0, -1, 0,
-    1, 0, 1, 0, -1, 0,
-    // +y
-    0, 1, 0, 0, 1, 0,
-    1, 1, 0, 0, 1, 0,
-    0, 1, 1, 0, 1, 0,
-    1, 1, 1, 0, 1, 0,
-    // -x
-    0, 0, 0, -1, 0, 0,
-    0, 1, 0, -1, 0, 0,
-    0, 0, 1, -1, 0, 0,
-    0, 1, 1, -1, 0, 0,
-    // +x
-    1, 0, 0, 1, 0, 0,
-    1, 1, 0, 1, 0, 0,
-    1, 0, 1, 1, 0, 0,
-    1, 1, 1, 1, 0, 0,
-};
-int INDICES[] = {
-    // -z
-    0, 1, 2,
-    0, 3, 1,
-    0, 3, 2,
-    1, 3, 2,
-    // +z
-    4, 5, 6,
-    4, 7, 5,
-    4, 7, 6,
-    5, 7, 6,
-    // -y
-    8, 9,  10,
-    8, 11, 9,
-    8, 11, 10,
-    9, 11, 10,
-    // +y
-    12, 13, 14,
-    12, 15, 13,
-    12, 15, 14,
-    13, 15, 14,
-    // -x
-    16, 17, 18,
-    16, 19, 17,
-    16, 19, 18,
-    17, 19, 18,
-    // +x
-    20, 21, 23,
-    20, 22, 21,
-    20, 22, 23,
-    21, 22, 23,
-};
-// clang-format on
-
 struct ViewUniforms {
     Matrix4 projection;
     Matrix4 view;
@@ -95,24 +28,84 @@ struct Uniforms {
     Matrix4 instance[512];
 };
 
+auto gl_severity(GLenum severity) -> const char * {
+    switch (severity) {
+    case GL_DEBUG_SEVERITY_HIGH:
+        return "high";
+    case GL_DEBUG_SEVERITY_MEDIUM:
+        return "medium";
+    case GL_DEBUG_SEVERITY_LOW:
+        return "low";
+    case GL_DEBUG_SEVERITY_NOTIFICATION:
+        return "notification";
+    default:
+        return "unknown";
+    }
+}
+
+auto gl_message_type(GLenum type) -> const char * {
+    switch (type) {
+    case GL_DEBUG_TYPE_ERROR:
+        return "error";
+    case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:
+        return "deprecation";
+    case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:
+        return "undefined_behavior";
+    case GL_DEBUG_TYPE_PORTABILITY:
+        return "portability";
+    case GL_DEBUG_TYPE_PERFORMANCE:
+        return "performance";
+    case GL_DEBUG_TYPE_MARKER:
+        return "marker";
+    case GL_DEBUG_TYPE_PUSH_GROUP:
+        return "push";
+    case GL_DEBUG_TYPE_POP_GROUP:
+        return "pop";
+    case GL_DEBUG_TYPE_OTHER:
+        return "other";
+    default:
+        return "unknown";
+    }
+}
+
+auto gl_message_source(GLenum source) -> const char * {
+    switch (source) {
+    case GL_DEBUG_SOURCE_API:
+        return "api";
+    case GL_DEBUG_SOURCE_WINDOW_SYSTEM:
+        return "window_system";
+    case GL_DEBUG_SOURCE_SHADER_COMPILER:
+        return "shader";
+    case GL_DEBUG_SOURCE_THIRD_PARTY:
+        return "3rd_party";
+    case GL_DEBUG_SOURCE_APPLICATION:
+        return "application";
+    case GL_DEBUG_SOURCE_OTHER:
+        return "other";
+    default:
+        return "unknown";
+    }
+}
+
+void GLAPIENTRY debug_handler(GLenum source, GLenum type, GLuint id,
+                              GLenum severity, GLsizei length,
+                              const GLchar *message, const void *userParam) {
+    std::cout << "[" << id << ":" << gl_message_source(source) << ":"
+              << gl_message_type(type) << ":" << gl_severity(severity) << "] "
+              << message << std::endl;
+}
+
 Renderer::Renderer(AssetApi &assets) : m_assets(assets) {
+    if (m_debug) {
+        glEnable(GL_DEBUG_OUTPUT);
+        glDebugMessageCallback(debug_handler, nullptr);
+    }
+
     glClipControl(GL_UPPER_LEFT, GL_ZERO_TO_ONE);
     glEnable(GL_DEPTH_TEST);
     glClearDepth(0);
     glClearColor(0.3, 0.3, 0.3, 0.0);
     glDepthFunc(GL_GEQUAL);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    GLuint depthRenderbuffer;
-    glGenRenderbuffers(1, &depthRenderbuffer);
-    glBindRenderbuffer(GL_RENDERBUFFER, depthRenderbuffer);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32F, WINDOW_WIDTH,
-                          WINDOW_HEIGHT);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
-                              GL_RENDERBUFFER, depthRenderbuffer);
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-        throw SystemException("Failed to create framebuffer");
-    }
 
     GLuint vertex_shader =
         compileShader("/shaders/vertex.glsl", GL_VERTEX_SHADER);
@@ -207,12 +200,25 @@ void Renderer::prepare_frame(State &state) {
 }
 
 void Renderer::render_chunk(const Chunk &chunk) {
+    if (!chunk.mesh()) {
+        return;
+    }
     auto instance = Matrix4::identity();
     instance[3] = chunk.pos().offset();
+    render_mesh(*chunk.mesh(), instance);
+}
+
+void Renderer::render_mesh(const ChunkMesh &mesh, Matrix4 instance) {
+    if (mesh.m_size == 0) {
+        return;
+    }
     glBufferSubData(GL_UNIFORM_BUFFER,
                     sizeof(ViewUniforms) + sizeof(Matrix4) * m_instance_count,
                     sizeof(Matrix4), &instance);
-    chunk.draw(m_instance_count);
+    glBindVertexArray(mesh.m_vao);
+    glDrawElementsInstancedBaseInstance(GL_TRIANGLES, 3 * mesh.m_size,
+                                        GL_UNSIGNED_INT, nullptr, 1,
+                                        m_instance_count);
     m_instance_count++;
 }
 

@@ -9,6 +9,7 @@
 #include "exceptions.h"
 #include "math/aabb.h"
 #include "math/vector.h"
+#include "mesh_builder.h"
 #include "render.h"
 
 std::string get_asset_root() {
@@ -62,6 +63,17 @@ Vector3 get_cursor_vector() {
     return vec3(vx, vy, 1).normalized();
 }
 
+ChunkMesh create_mesh(TextureMap &textures) {
+    MeshData data;
+    BlockFace face;
+    face.texture = *textures.get("blocks/dirt.png");
+    data.add_face(face);
+
+    ChunkMesh mesh;
+    mesh.update(data);
+    return mesh;
+}
+
 void main_loop(SDL_Window *window) {
     auto resolver = std::unique_ptr<AssetResolver>(
         new DirectoryAssetResolver(get_asset_root()));
@@ -76,22 +88,23 @@ void main_loop(SDL_Window *window) {
     State state{std::move(rig)};
 
     renderer.make_image_resident("blocks/dirt.png");
+    auto mesh = create_mesh(renderer.texture_map());
 
-    ChunkMap chunk_map;
-    for (int i = -2; i <= 2; i++) {
-        for (int j = -2; j <= 2; j++) {
-            for (int k = -2; k <= 2; k++) {
-                chunk_map.generate_chunk({i, j, k});
-            }
-        }
-    }
-    for (int i = -1; i <= 1; i++) {
-        for (int j = -1; j <= 1; j++) {
-            for (int k = -1; k <= 1; k++) {
-                chunk_map.update_mesh({i, j, k});
-            }
-        }
-    }
+    // ChunkMap chunk_map;
+    // for (int i = -2; i <= 2; i++) {
+    //     for (int j = -2; j <= 2; j++) {
+    //         for (int k = -2; k <= 2; k++) {
+    //             chunk_map.generate_chunk({i, j, k});
+    //         }
+    //     }
+    // }
+    // for (int i = -1; i <= 1; i++) {
+    //     for (int j = -1; j <= 1; j++) {
+    //         for (int k = -1; k <= 1; k++) {
+    //             chunk_map.update_mesh({i, j, k});
+    //         }
+    //     }
+    // }
 
     auto start = std::chrono::steady_clock::now();
     while (1) {
@@ -109,13 +122,14 @@ void main_loop(SDL_Window *window) {
 
         std::chrono::duration<float> dt = now - start;
         renderer.prepare_frame(state);
-        for (int i = -1; i <= 1; i++) {
-            for (int j = -1; j <= 1; j++) {
-                for (int k = -1; k <= 1; k++) {
-                    renderer.render_chunk(chunk_map[{i, j, k}]);
-                }
-            }
-        }
+        renderer.render_mesh(mesh, Matrix4::identity());
+        // for (int i = -1; i <= 1; i++) {
+        //     for (int j = -1; j <= 1; j++) {
+        //         for (int k = -1; k <= 1; k++) {
+        //             renderer.render_chunk(chunk_map[{i, j, k}]);
+        //         }
+        //     }
+        // }
         SDL_GL_SwapWindow(window);
     }
 }
