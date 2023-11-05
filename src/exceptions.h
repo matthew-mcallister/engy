@@ -19,6 +19,14 @@ class SystemException : public std::runtime_error {
     using std::runtime_error::runtime_error;
 };
 
+class TimeoutException : public std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
+
+class DeviceLostException : public std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
+
 class Unimplemented : public std::logic_error {
     using std::logic_error::logic_error;
 };

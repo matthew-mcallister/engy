@@ -19,6 +19,8 @@ executable(
     'src/math/scene.cpp',
     'src/render/chunk_mesh.cpp',
     'src/render/texture_map.cpp',
+    'src/vulkan/device.cpp',
+    'src/vulkan/renderer.cpp',
     dependencies: [gl, spng, sdl2],
     include_directories: [include_directories('src')],
     cpp_args: ['-std=c++20', '-DGL_GLEXT_PROTOTYPES', '-msse4.1', '-Wno-narrowing'],

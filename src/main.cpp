@@ -11,6 +11,7 @@
 #include "math/vector.h"
 #include "mesh_builder.h"
 #include "render.h"
+#include "vulkan/device.h"
 
 std::string get_asset_root() {
     return std::getenv("ASSET_PATH");
@@ -78,7 +79,7 @@ void main_loop(SDL_Window *window) {
     auto resolver = std::unique_ptr<AssetResolver>(
         new DirectoryAssetResolver(get_asset_root()));
     AssetApi assets{std::move(resolver)};
-    Renderer renderer{assets};
+    // Renderer renderer{assets};
 
     if (SDL_SetRelativeMouseMode(SDL_TRUE)) {
         throw SystemException("Failed to capture mouse");
@@ -87,8 +88,11 @@ void main_loop(SDL_Window *window) {
     std::unique_ptr<FirstPersonCameraRig> rig{new FirstPersonCameraRig()};
     State state{std::move(rig)};
 
-    renderer.make_image_resident("blocks/dirt.png");
-    auto mesh = create_mesh(renderer.texture_map());
+    auto device = VulkanDevice::create(window, 0, true);
+    auto swapchain = VulkanSwapchain::create(device, vk::SwapchainKHR{});
+
+    // renderer.make_image_resident("blocks/dirt.png");
+    // auto mesh = create_mesh(renderer.texture_map());
 
     // ChunkMap chunk_map;
     // for (int i = -2; i <= 2; i++) {
@@ -118,19 +122,26 @@ void main_loop(SDL_Window *window) {
         const auto *keystate = SDL_GetKeyboardState(nullptr);
         state.ticker(keystate);
 
+        try {
+            swapchain.acquire_next_image(16'000'000);
+        } catch (const TimeoutException &e) {
+            std::cout << e.what() << std::endl;
+            continue;
+        }
+
         auto now = std::chrono::steady_clock::now();
 
         std::chrono::duration<float> dt = now - start;
-        renderer.prepare_frame(state);
-        renderer.render_mesh(mesh, Matrix4::identity());
-        // for (int i = -1; i <= 1; i++) {
-        //     for (int j = -1; j <= 1; j++) {
-        //         for (int k = -1; k <= 1; k++) {
-        //             renderer.render_chunk(chunk_map[{i, j, k}]);
-        //         }
-        //     }
-        // }
-        SDL_GL_SwapWindow(window);
+        // renderer.prepare_frame(state);
+        // renderer.render_mesh(mesh, Matrix4::identity());
+        //  for (int i = -1; i <= 1; i++) {
+        //      for (int j = -1; j <= 1; j++) {
+        //          for (int k = -1; k <= 1; k++) {
+        //              renderer.render_chunk(chunk_map[{i, j, k}]);
+        //          }
+        //      }
+        //  }
+        // SDL_GL_SwapWindow(window);
     }
 }
 
@@ -143,20 +154,13 @@ int sdl_main() {
         throw SystemException("Failed to initialize SDL");
     }
 
+    load_vulkan_library();
+
     window = SDL_CreateWindow(
         WINDOW_TITLE, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-        WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+        WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
     if (!window) {
         throw SystemException("Failed to create window");
-    }
-
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,
-                        SDL_GL_CONTEXT_PROFILE_CORE);
-    auto gl_context = SDL_GL_CreateContext(window);
-    if (!gl_context) {
-        throw SystemException("Failed to create OpenGL context");
     }
 
     main_loop(window);
