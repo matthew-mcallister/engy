@@ -55,21 +55,29 @@ public:
     }
     vk::raii::Queue &graphics_queue() { return m_graphics_queue; }
 
-    vk::raii::Semaphore create_binary_semaphore() const;
+    vk::raii::Semaphore
+    create_semaphore(vk::SemaphoreType type = vk::SemaphoreType::eBinary) const;
 };
 
 class VulkanSwapchain {
     /// TODO: Should be shared_ptr when multithreading
+    int m_width;
+    int m_height;
     const VulkanDevice &m_device;
     vk::raii::SwapchainKHR m_swapchain;
+    std::vector<vk::Image> m_images;
+    std::vector<vk::raii::ImageView> m_image_views;
     vk::raii::Semaphore m_image_available_semaphore;
     uint32_t m_acquired_image = 0xffffffff;
 
 public:
     VulkanSwapchain(const VulkanDevice &device,
-                    vk::raii::SwapchainKHR swapchain)
+                    vk::raii::SwapchainKHR swapchain,
+                    std::vector<vk::Image> images,
+                    std::vector<vk::raii::ImageView> image_views)
         : m_device{device}, m_swapchain(std::move(swapchain)),
-          m_image_available_semaphore{device.create_binary_semaphore()} {}
+          m_images{std::move(images)}, m_image_views{std::move(image_views)},
+          m_image_available_semaphore{device.create_semaphore()} {}
 
     static auto create(const VulkanDevice &device,
                        vk::SwapchainKHR old_swapchain) -> VulkanSwapchain;
@@ -79,9 +87,23 @@ public:
     vk::raii::SwapchainKHR *operator->() { return &m_swapchain; }
     const vk::raii::SwapchainKHR *operator->() const { return &m_swapchain; }
 
-    vk::raii::Semaphore &image_available_semaphore() {
+    int width() const { return m_width; }
+    int height() const { return m_height; }
+
+    vk::raii::Semaphore &image_acquire_semaphore() {
         return m_image_available_semaphore;
     }
+
+    vk::Image &current_image() {
+        assert(m_acquired_image != 0xffffffff);
+        return m_images[m_acquired_image];
+    }
+    vk::raii::ImageView &current_image_view() {
+        assert(m_acquired_image != 0xffffffff);
+        return m_image_views[m_acquired_image];
+    }
+    std::span<vk::Image> images() { return m_images; }
+    uint32_t current_image_index() const { return m_acquired_image; }
 
     void acquire_next_image(uint64_t timeout);
     void present(vk::raii::Queue &queue,

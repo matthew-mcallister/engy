@@ -154,9 +154,21 @@ VulkanDevice VulkanDevice::create(SDL_Window *window, uint32_t device_id,
     float priority = 1.0;
     queue_info.setQueuePriorities(priority);
 
-    // Configure descriptor indexing
     // TODO: Check that selected features are compatible with device.
+
+    vk::PhysicalDeviceSynchronization2Features synchronization2_features;
+    synchronization2_features.synchronization2 = 1;
+
+    vk::PhysicalDeviceDynamicRenderingFeatures dynamic_rendering_features;
+    dynamic_rendering_features.pNext = &synchronization2_features;
+    dynamic_rendering_features.dynamicRendering = 1;
+
+    vk::PhysicalDeviceTimelineSemaphoreFeatures timeline_semaphore_features;
+    timeline_semaphore_features.pNext = &dynamic_rendering_features;
+    timeline_semaphore_features.timelineSemaphore = 1;
+
     vk::PhysicalDeviceDescriptorIndexingFeatures desc_indexing_features;
+    desc_indexing_features.pNext = &timeline_semaphore_features;
     desc_indexing_features.shaderSampledImageArrayNonUniformIndexing = 1;
     desc_indexing_features.descriptorBindingSampledImageUpdateAfterBind = 1;
     desc_indexing_features.descriptorBindingUpdateUnusedWhilePending = 1;
@@ -183,8 +195,12 @@ VulkanDevice VulkanDevice::create(SDL_Window *window, uint32_t device_id,
     return device;
 }
 
-vk::raii::Semaphore VulkanDevice::create_binary_semaphore() const {
+vk::raii::Semaphore
+VulkanDevice::create_semaphore(vk::SemaphoreType type) const {
+    vk::SemaphoreTypeCreateInfo type_info;
+    type_info.semaphoreType = type;
     vk::SemaphoreCreateInfo info;
+    info.pNext = &type_info;
     return m_device.createSemaphore(info, nullptr);
 }
 
@@ -209,7 +225,22 @@ VulkanSwapchain VulkanSwapchain::create(const VulkanDevice &device,
     sw_info.presentMode = settings.present_mode;
     sw_info.oldSwapchain = old_swapchain;
     auto swapchain = device->createSwapchainKHR(sw_info, nullptr);
-    return VulkanSwapchain{device, std::move(swapchain)};
+
+    auto images = swapchain.getImages();
+    std::vector<vk::raii::ImageView> image_views;
+    for (const auto &image : images) {
+        vk::ImageViewCreateInfo info;
+        info.image = image;
+        info.viewType = vk::ImageViewType::e2D;
+        info.format = settings.format;
+        info.subresourceRange = vk::ImageSubresourceRange{
+            vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1};
+        auto view = device->createImageView(info, nullptr);
+        image_views.push_back(std::move(view));
+    }
+
+    return VulkanSwapchain{device, std::move(swapchain), std::move(images),
+                           std::move(image_views)};
 }
 
 void VulkanSwapchain::acquire_next_image(uint64_t timeout) {

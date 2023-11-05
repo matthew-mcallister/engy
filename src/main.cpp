@@ -12,6 +12,7 @@
 #include "mesh_builder.h"
 #include "render.h"
 #include "vulkan/device.h"
+#include "vulkan/renderer.h"
 
 std::string get_asset_root() {
     return std::getenv("ASSET_PATH");
@@ -81,15 +82,18 @@ void main_loop(SDL_Window *window) {
     AssetApi assets{std::move(resolver)};
     // Renderer renderer{assets};
 
+    /*
     if (SDL_SetRelativeMouseMode(SDL_TRUE)) {
         throw SystemException("Failed to capture mouse");
     }
+    */
 
     std::unique_ptr<FirstPersonCameraRig> rig{new FirstPersonCameraRig()};
     State state{std::move(rig)};
 
     auto device = VulkanDevice::create(window, 0, true);
     auto swapchain = VulkanSwapchain::create(device, vk::SwapchainKHR{});
+    VulkanRenderer renderer = {std::move(device), std::move(swapchain)};
 
     // renderer.make_image_resident("blocks/dirt.png");
     // auto mesh = create_mesh(renderer.texture_map());
@@ -123,15 +127,18 @@ void main_loop(SDL_Window *window) {
         state.ticker(keystate);
 
         try {
-            swapchain.acquire_next_image(16'000'000);
+            renderer.flush_frame();
+            renderer.acquire_image();
         } catch (const TimeoutException &e) {
-            std::cout << e.what() << std::endl;
             continue;
         }
 
         auto now = std::chrono::steady_clock::now();
-
         std::chrono::duration<float> dt = now - start;
+
+        renderer.begin_rendering();
+        renderer.end_rendering();
+        renderer.present();
         // renderer.prepare_frame(state);
         // renderer.render_mesh(mesh, Matrix4::identity());
         //  for (int i = -1; i <= 1; i++) {
