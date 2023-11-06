@@ -8,6 +8,8 @@
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_raii.hpp>
 
+#include "vulkan/debug.h"
+
 class VulkanSwapchain;
 
 void load_vulkan_library();
@@ -26,6 +28,8 @@ class VulkanDevice {
     vk::raii::Queue m_graphics_queue;
     vk::raii::SurfaceKHR m_surface;
     SwapchainSettings m_swapchain_settings;
+
+    bool m_debug;
 
     friend class VulkanSwapchain;
 
@@ -50,6 +54,7 @@ public:
     vk::raii::Device *operator->() { return &m_device; }
     const vk::raii::Device *operator->() const { return &m_device; }
 
+    bool debug() const { return m_debug; }
     const vk::raii::PhysicalDevice &physical_device() const {
         return m_physical_device;
     }
@@ -57,6 +62,15 @@ public:
 
     vk::raii::Semaphore
     create_semaphore(vk::SemaphoreType type = vk::SemaphoreType::eBinary) const;
+
+    template<typename T>
+    void set_name(const T &object, const char *name) const {
+        vk::DebugUtilsObjectNameInfoEXT name_info;
+        name_info.objectType = object_type<T>::value;
+        name_info.objectHandle = *reinterpret_cast<const uint64_t *>(&*object);
+        name_info.pObjectName = name;
+        m_device.setDebugUtilsObjectNameEXT(name_info);
+    }
 };
 
 class VulkanSwapchain {
@@ -104,6 +118,9 @@ public:
     }
     std::span<vk::Image> images() { return m_images; }
     uint32_t current_image_index() const { return m_acquired_image; }
+    vk::Format image_format() const {
+        return m_device.m_swapchain_settings.format;
+    };
 
     void acquire_next_image(uint64_t timeout);
     void present(vk::raii::Queue &queue,

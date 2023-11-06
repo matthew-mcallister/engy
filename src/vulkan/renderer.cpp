@@ -1,9 +1,14 @@
 #include <array>
+#include <format>
 
+#include <vk_mem_alloc.h>
+
+#include "asset.h"
 #include "exceptions.h"
 #include "vulkan/renderer.h"
 
-PerFrame PerFrame::create(VulkanDevice &device, VulkanSwapchain &swapchain) {
+PerFrame PerFrame::create(int index, VulkanDevice &device,
+                          VulkanSwapchain &swapchain) {
     auto semaphore = device.create_semaphore(vk::SemaphoreType::eTimeline);
 
     vk::CommandPoolCreateInfo cmd_info;
@@ -16,20 +21,127 @@ PerFrame PerFrame::create(VulkanDevice &device, VulkanSwapchain &swapchain) {
     alloc_info.level = vk::CommandBufferLevel::ePrimary;
     alloc_info.commandBufferCount = 1;
     auto buffers = device->allocateCommandBuffers(alloc_info);
+    auto &buffer = buffers[0];
 
-    return {std::move(semaphore), std::move(pool), std::move(buffers[0])};
+    if (device.debug()) {
+        std::string name;
+        name = std::format("PerFrame[{}].end_of_frame_semaphore", index);
+        device.set_name(semaphore, name.c_str());
+        name = std::format("PerFrame[{}].command_pool", index);
+        device.set_name(pool, name.c_str());
+        name = std::format("PerFrame[{}].command_buffer", index);
+        device.set_name(buffer, name.c_str());
+    }
+
+    return {std::move(semaphore), std::move(pool), std::move(buffer)};
+}
+
+vk::raii::ShaderModule &
+VulkanRenderer::create_shader_module(std::span<const char> bytes) {
+    assert(bytes.size() % 4 == 0);
+    const std::span<const uint32_t> code2{(const uint32_t *)&bytes[0],
+                                          bytes.size() / 4};
+    vk::ShaderModuleCreateInfo info;
+    info.setCode(code2);
+    auto module = m_device->createShaderModule(info, nullptr);
+    m_shaders.push_back(std::move(module));
+    return m_shaders[m_shaders.size() - 1];
+}
+
+vk::raii::PipelineLayout &VulkanRenderer::create_pipeline_layout() {
+    vk::PipelineLayoutCreateInfo info;
+    auto layout = m_device->createPipelineLayout(info, nullptr);
+    m_pipeline_layouts.push_back(std::move(layout));
+    return m_pipeline_layouts[m_pipeline_layouts.size() - 1];
+}
+
+vk::raii::Pipeline &VulkanRenderer::create_graphics_pipeline(AssetApi &assets) {
+    std::vector<vk::PipelineShaderStageCreateInfo> stages;
+    auto &vertex_shader =
+        create_shader_module(assets.load_blob("shaders/triangle.vertex.spv"));
+    vk::PipelineShaderStageCreateInfo vertex_stage;
+    vertex_stage.stage = vk::ShaderStageFlagBits::eVertex;
+    vertex_stage.module = *vertex_shader;
+    vertex_stage.pName = "main";
+    stages.push_back(vertex_stage);
+    auto &fragment_shader =
+        create_shader_module(assets.load_blob("shaders/triangle.fragment.spv"));
+    vk::PipelineShaderStageCreateInfo fragment_stage;
+    fragment_stage.stage = vk::ShaderStageFlagBits::eFragment;
+    fragment_stage.module = *fragment_shader;
+    fragment_stage.pName = "main";
+    stages.push_back(fragment_stage);
+
+    vk::PipelineVertexInputStateCreateInfo vertex_input;
+
+    vk::PipelineInputAssemblyStateCreateInfo input_assembly;
+    input_assembly.topology = vk::PrimitiveTopology::eTriangleList;
+
+    int w = m_swapchain.width(), h = m_swapchain.height();
+    vk::Viewport viewport;
+    viewport.x = 0;
+    viewport.y = 0;
+    viewport.width = w;
+    viewport.height = h;
+    viewport.minDepth = 0;
+    viewport.maxDepth = 1;
+    vk::Rect2D scissor = {{0, 0}, {w, h}};
+    vk::PipelineViewportStateCreateInfo viewport_state;
+    viewport_state.setViewports(viewport);
+    viewport_state.setScissors(scissor);
+
+    vk::PipelineRasterizationStateCreateInfo raster_state;
+    raster_state.polygonMode = vk::PolygonMode::eFill;
+    raster_state.cullMode =
+        vk::CullModeFlagBits::eNone; // FIXME: Backface culling
+    raster_state.frontFace = vk::FrontFace::eCounterClockwise;
+    raster_state.lineWidth = 1.0;
+
+    vk::PipelineMultisampleStateCreateInfo multisample_state;
+    multisample_state.rasterizationSamples = vk::SampleCountFlagBits::e1;
+
+    vk::PipelineColorBlendAttachmentState attachment;
+    attachment.colorWriteMask =
+        vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
+        vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+    vk::PipelineColorBlendStateCreateInfo color_blend;
+    color_blend.setAttachments(attachment);
+
+    vk::PipelineRenderingCreateInfo rendering_info;
+    vk::Format color_format = m_swapchain.image_format();
+    rendering_info.setColorAttachmentFormats(color_format);
+
+    const vk::PipelineLayout &layout = *create_pipeline_layout();
+
+    vk::GraphicsPipelineCreateInfo info;
+    info.pNext = &rendering_info;
+    info.setStages(stages);
+    info.pVertexInputState = &vertex_input;
+    info.pInputAssemblyState = &input_assembly;
+    info.pViewportState = &viewport_state;
+    info.pRasterizationState = &raster_state;
+    info.pMultisampleState = &multisample_state;
+    info.pColorBlendState = &color_blend;
+    info.layout = layout;
+
+    auto pipeline = m_device->createGraphicsPipeline(nullptr, info, nullptr);
+    m_graphics_pipelines.push_back(std::move(pipeline));
+    return m_graphics_pipelines[m_graphics_pipelines.size() - 1];
 }
 
 VulkanRenderer::VulkanRenderer(VulkanDevice device, VulkanSwapchain swapchain)
     : m_device{std::move(device)}, m_swapchain{std::move(swapchain)},
       m_present_semaphore(m_device.create_semaphore()) {
     for (int i = 0; i < 2; i++) {
-        m_per_frame.push_back(PerFrame::create(m_device, m_swapchain));
+        m_per_frame.push_back(PerFrame::create(i, m_device, m_swapchain));
     }
 }
 
 VulkanRenderer::~VulkanRenderer() {
     m_device->waitIdle();
+    // if (m_allocator) {
+    //     vmaDestroyAllocator(m_allocator);
+    // }
 }
 
 void VulkanRenderer::flush_frame() {
@@ -85,6 +197,15 @@ void VulkanRenderer::begin_rendering() {
     info.layerCount = 1;
     info.setColorAttachments(att_info);
     cmds.beginRendering(info);
+}
+
+void VulkanRenderer::render() {
+    auto &frame = per_frame();
+    auto &cmds = frame.command_buffer;
+    assert(m_graphics_pipelines.size() > 0);
+    cmds.bindPipeline(vk::PipelineBindPoint::eGraphics,
+                      *m_graphics_pipelines[0]);
+    cmds.draw(6, 1, 0, 0);
 }
 
 void VulkanRenderer::end_rendering() {

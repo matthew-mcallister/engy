@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include <format>
 #include <fstream>
 #include <vector>
 
@@ -16,6 +17,9 @@ std::vector<char> DirectoryAssetResolver::resolve(const std::string &path) {
     }
 
     std::ifstream f(real_path, std::ios_base::binary);
+    if (!f.good()) {
+        throw SystemException(std::format("Cannot read file: {}", real_path));
+    }
     return std::vector(std::istreambuf_iterator{f}, {});
 }
 

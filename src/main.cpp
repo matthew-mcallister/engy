@@ -65,16 +65,16 @@ Vector3 get_cursor_vector() {
     return vec3(vx, vy, 1).normalized();
 }
 
-ChunkMesh create_mesh(TextureMap &textures) {
-    MeshData data;
-    BlockFace face;
-    face.texture = *textures.get("blocks/dirt.png");
-    data.add_face(face);
-
-    ChunkMesh mesh;
-    mesh.update(data);
-    return mesh;
-}
+// ChunkMesh create_mesh(TextureMap &textures) {
+//     MeshData data;
+//     BlockFace face;
+//     face.texture = *textures.get("blocks/dirt.png");
+//     data.add_face(face);
+//
+//     ChunkMesh mesh;
+//     mesh.update(data);
+//     return mesh;
+// }
 
 void main_loop(SDL_Window *window) {
     auto resolver = std::unique_ptr<AssetResolver>(
@@ -82,11 +82,10 @@ void main_loop(SDL_Window *window) {
     AssetApi assets{std::move(resolver)};
     // Renderer renderer{assets};
 
-    /*
+    // TODO: Only set relative mouse modewhen window is focused
     if (SDL_SetRelativeMouseMode(SDL_TRUE)) {
         throw SystemException("Failed to capture mouse");
     }
-    */
 
     std::unique_ptr<FirstPersonCameraRig> rig{new FirstPersonCameraRig()};
     State state{std::move(rig)};
@@ -94,6 +93,7 @@ void main_loop(SDL_Window *window) {
     auto device = VulkanDevice::create(window, 0, true);
     auto swapchain = VulkanSwapchain::create(device, vk::SwapchainKHR{});
     VulkanRenderer renderer = {std::move(device), std::move(swapchain)};
+    renderer.create_graphics_pipeline(assets);
 
     // renderer.make_image_resident("blocks/dirt.png");
     // auto mesh = create_mesh(renderer.texture_map());
@@ -137,6 +137,7 @@ void main_loop(SDL_Window *window) {
         std::chrono::duration<float> dt = now - start;
 
         renderer.begin_rendering();
+        renderer.render();
         renderer.end_rendering();
         renderer.present();
         // renderer.prepare_frame(state);

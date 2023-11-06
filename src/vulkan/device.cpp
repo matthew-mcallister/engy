@@ -67,14 +67,15 @@ VulkanDevice VulkanDevice::create(SDL_Window *window, uint32_t device_id,
     std::vector<const char *> requested_layers;
     std::vector<const char *> required_extensions;
 
-    if (debug) {
-        requested_layers.push_back("VK_LAYER_KHRONOS_validation");
-    }
-
     unsigned int count;
     SDL_Vulkan_GetInstanceExtensions(window, &count, nullptr);
     required_extensions.resize(count);
     SDL_Vulkan_GetInstanceExtensions(window, &count, &required_extensions[0]);
+
+    if (debug) {
+        requested_layers.push_back("VK_LAYER_KHRONOS_validation");
+        required_extensions.push_back("VK_EXT_debug_utils");
+    }
 
     vk::raii::Context context;
 
@@ -146,6 +147,7 @@ VulkanDevice VulkanDevice::create(SDL_Window *window, uint32_t device_id,
 
     required_extensions.clear();
     required_extensions.push_back("VK_KHR_swapchain");
+    required_extensions.push_back("VK_KHR_push_descriptor");
 
     // Configure graphics queue
     vk::DeviceQueueCreateInfo queue_info;
@@ -239,8 +241,11 @@ VulkanSwapchain VulkanSwapchain::create(const VulkanDevice &device,
         image_views.push_back(std::move(view));
     }
 
-    return VulkanSwapchain{device, std::move(swapchain), std::move(images),
-                           std::move(image_views)};
+    auto sw = VulkanSwapchain{device, std::move(swapchain), std::move(images),
+                              std::move(image_views)};
+    sw.m_width = w;
+    sw.m_height = h;
+    return sw;
 }
 
 void VulkanSwapchain::acquire_next_image(uint64_t timeout) {
