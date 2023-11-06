@@ -21,7 +21,7 @@ struct PerFrame {
 class VulkanRenderer {
     VulkanDevice m_device;
     VulkanSwapchain m_swapchain;
-    // VmaAllocator m_allocator = 0;
+    VmaAllocator m_allocator = 0;
 
     std::vector<PerFrame> m_per_frame;
     vk::raii::Semaphore m_present_semaphore;

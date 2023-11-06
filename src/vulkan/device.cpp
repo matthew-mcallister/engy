@@ -188,6 +188,7 @@ VulkanDevice VulkanDevice::create(SDL_Window *window, uint32_t device_id,
 
     auto graphics_queue = vk_device.getQueue(0, 0);
     VulkanDevice device{window,
+                        std::move(context),
                         std::move(instance),
                         std::move(pdev),
                         std::move(vk_device),

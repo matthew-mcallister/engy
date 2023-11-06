@@ -129,8 +129,28 @@ vk::raii::Pipeline &VulkanRenderer::create_graphics_pipeline(AssetApi &assets) {
     return m_graphics_pipelines[m_graphics_pipelines.size() - 1];
 }
 
+VmaAllocator create_allocator(VulkanDevice &device) {
+    VmaVulkanFunctions vulkanFunctions = {};
+    vulkanFunctions.vkGetInstanceProcAddr =
+        device.context().getDispatcher()->vkGetInstanceProcAddr;
+    vulkanFunctions.vkGetDeviceProcAddr =
+        device.physical_device().getDispatcher()->vkGetDeviceProcAddr;
+
+    VmaAllocatorCreateInfo allocatorCreateInfo = {};
+    allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_3;
+    allocatorCreateInfo.instance = *device.instance();
+    allocatorCreateInfo.physicalDevice = *device.physical_device();
+    allocatorCreateInfo.device = **device;
+    allocatorCreateInfo.pVulkanFunctions = &vulkanFunctions;
+
+    VmaAllocator allocator;
+    vmaCreateAllocator(&allocatorCreateInfo, &allocator);
+    return allocator;
+}
+
 VulkanRenderer::VulkanRenderer(VulkanDevice device, VulkanSwapchain swapchain)
-    : m_device{std::move(device)}, m_swapchain{std::move(swapchain)},
+    : m_device{std::move(device)}, m_allocator{create_allocator(m_device)},
+      m_swapchain{std::move(swapchain)},
       m_present_semaphore(m_device.create_semaphore()) {
     for (int i = 0; i < 2; i++) {
         m_per_frame.push_back(PerFrame::create(i, m_device, m_swapchain));
@@ -139,9 +159,9 @@ VulkanRenderer::VulkanRenderer(VulkanDevice device, VulkanSwapchain swapchain)
 
 VulkanRenderer::~VulkanRenderer() {
     m_device->waitIdle();
-    // if (m_allocator) {
-    //     vmaDestroyAllocator(m_allocator);
-    // }
+    if (m_allocator) {
+        vmaDestroyAllocator(m_allocator);
+    }
 }
 
 void VulkanRenderer::flush_frame() {

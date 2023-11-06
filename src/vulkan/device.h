@@ -22,6 +22,7 @@ struct SwapchainSettings {
 
 class VulkanDevice {
     SDL_Window *m_window;
+    vk::raii::Context m_context;
     vk::raii::Instance m_instance;
     vk::raii::PhysicalDevice m_physical_device;
     vk::raii::Device m_device;
@@ -34,12 +35,14 @@ class VulkanDevice {
     friend class VulkanSwapchain;
 
 public:
-    VulkanDevice(SDL_Window *window, vk::raii::Instance instance,
+    VulkanDevice(SDL_Window *window, vk::raii::Context context,
+                 vk::raii::Instance instance,
                  vk::raii::PhysicalDevice physical_device,
                  vk::raii::Device device, vk::raii::Queue graphics_queue,
                  vk::raii::SurfaceKHR surface,
                  SwapchainSettings swapchain_settings)
-        : m_window{window}, m_instance{std::move(instance)},
+        : m_window{window}, m_context{std::move(context)},
+          m_instance{std::move(instance)},
           m_physical_device(std::move(physical_device)),
           m_device{std::move(device)},
           m_graphics_queue{std::move(graphics_queue)},
@@ -55,6 +58,8 @@ public:
     const vk::raii::Device *operator->() const { return &m_device; }
 
     bool debug() const { return m_debug; }
+    const vk::raii::Context &context() const { return m_context; }
+    const vk::raii::Instance &instance() const { return m_instance; }
     const vk::raii::PhysicalDevice &physical_device() const {
         return m_physical_device;
     }
