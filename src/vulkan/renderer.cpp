@@ -1,14 +1,36 @@
 #include <array>
 #include <format>
+#include <memory>
 
 #include <vk_mem_alloc.h>
 
 #include "asset.h"
 #include "exceptions.h"
+#include "math/vector.h"
+#include "vulkan/memory.h"
 #include "vulkan/renderer.h"
 
+struct Uniforms {
+    Vector4 color;
+};
+
+VulkanBuffer create_uniforms(std::shared_ptr<VulkanAllocator> allocator) {
+    vk::BufferCreateInfo buffer_info;
+    buffer_info.size = sizeof(Uniforms);
+    buffer_info.usage = vk::BufferUsageFlagBits::eUniformBuffer;
+
+    VmaAllocationCreateInfo alloc_info;
+    memset(&alloc_info, 0, sizeof(VmaAllocationCreateInfo));
+    alloc_info.usage = VMA_MEMORY_USAGE_AUTO;
+    alloc_info.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT |
+                       VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+    return VulkanAllocator::create_buffer(std::move(allocator), buffer_info,
+                                          alloc_info);
+}
+
 PerFrame PerFrame::create(int index, VulkanDevice &device,
-                          VulkanSwapchain &swapchain) {
+                          VulkanSwapchain &swapchain,
+                          std::shared_ptr<VulkanAllocator> allocator) {
     auto semaphore = device.create_semaphore(vk::SemaphoreType::eTimeline);
 
     vk::CommandPoolCreateInfo cmd_info;
@@ -23,6 +45,8 @@ PerFrame PerFrame::create(int index, VulkanDevice &device,
     auto buffers = device->allocateCommandBuffers(alloc_info);
     auto &buffer = buffers[0];
 
+    auto uniforms = create_uniforms(std::move(allocator));
+
     if (device.debug()) {
         std::string name;
         name = std::format("PerFrame[{}].end_of_frame_semaphore", index);
@@ -31,9 +55,13 @@ PerFrame PerFrame::create(int index, VulkanDevice &device,
         device.set_name(pool, name.c_str());
         name = std::format("PerFrame[{}].command_buffer", index);
         device.set_name(buffer, name.c_str());
+        // FIXME:
+        // name = std::format("PerFrame[{}].uniforms", index);
+        // device.set_name(*uniforms, name.c_str());
     }
 
-    return {std::move(semaphore), std::move(pool), std::move(buffer)};
+    return {std::move(semaphore), std::move(pool), std::move(buffer),
+            std::move(uniforms)};
 }
 
 vk::raii::ShaderModule &
@@ -48,8 +76,25 @@ VulkanRenderer::create_shader_module(std::span<const char> bytes) {
     return m_shaders[m_shaders.size() - 1];
 }
 
+vk::raii::DescriptorSetLayout &VulkanRenderer::create_set_layout() {
+    vk::DescriptorSetLayoutBinding binding;
+    binding.binding = 0;
+    binding.descriptorType = vk::DescriptorType::eUniformBuffer;
+    binding.descriptorCount = 1;
+    binding.stageFlags =
+        vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment;
+    vk::DescriptorSetLayoutCreateInfo info;
+    info.flags = vk::DescriptorSetLayoutCreateFlagBits::ePushDescriptorKHR;
+    info.setBindings(binding);
+    auto layout = m_device->createDescriptorSetLayout(info, nullptr);
+    m_set_layouts.push_back(std::move(layout));
+    return m_set_layouts[0];
+}
+
 vk::raii::PipelineLayout &VulkanRenderer::create_pipeline_layout() {
+    vk::DescriptorSetLayout set_layout = *create_set_layout();
     vk::PipelineLayoutCreateInfo info;
+    info.setSetLayouts(set_layout);
     auto layout = m_device->createPipelineLayout(info, nullptr);
     m_pipeline_layouts.push_back(std::move(layout));
     return m_pipeline_layouts[m_pipeline_layouts.size() - 1];
@@ -129,39 +174,38 @@ vk::raii::Pipeline &VulkanRenderer::create_graphics_pipeline(AssetApi &assets) {
     return m_graphics_pipelines[m_graphics_pipelines.size() - 1];
 }
 
-VmaAllocator create_allocator(VulkanDevice &device) {
-    VmaVulkanFunctions vulkanFunctions = {};
-    vulkanFunctions.vkGetInstanceProcAddr =
+std::shared_ptr<VulkanAllocator> create_allocator(VulkanDevice &device) {
+    VmaVulkanFunctions functions = {};
+    functions.vkGetInstanceProcAddr =
         device.context().getDispatcher()->vkGetInstanceProcAddr;
-    vulkanFunctions.vkGetDeviceProcAddr =
+    functions.vkGetDeviceProcAddr =
         device.physical_device().getDispatcher()->vkGetDeviceProcAddr;
 
-    VmaAllocatorCreateInfo allocatorCreateInfo = {};
-    allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_3;
-    allocatorCreateInfo.instance = *device.instance();
-    allocatorCreateInfo.physicalDevice = *device.physical_device();
-    allocatorCreateInfo.device = **device;
-    allocatorCreateInfo.pVulkanFunctions = &vulkanFunctions;
+    VmaAllocatorCreateInfo info = {};
+    info.vulkanApiVersion = VK_API_VERSION_1_3;
+    info.instance = *device.instance();
+    info.physicalDevice = *device.physical_device();
+    info.device = **device;
+    info.pVulkanFunctions = &functions;
 
-    VmaAllocator allocator;
-    vmaCreateAllocator(&allocatorCreateInfo, &allocator);
+    std::shared_ptr<VulkanAllocator> allocator{
+        new VulkanAllocator(device, info)};
     return allocator;
 }
 
 VulkanRenderer::VulkanRenderer(VulkanDevice device, VulkanSwapchain swapchain)
-    : m_device{std::move(device)}, m_allocator{create_allocator(m_device)},
-      m_swapchain{std::move(swapchain)},
+    : m_device{std::move(device)}, m_swapchain{std::move(swapchain)},
+      m_allocator{create_allocator(m_device)},
+      m_staging{StagingBuffer::create(m_allocator, 0x200'0000)},
       m_present_semaphore(m_device.create_semaphore()) {
     for (int i = 0; i < 2; i++) {
-        m_per_frame.push_back(PerFrame::create(i, m_device, m_swapchain));
+        m_per_frame.push_back(
+            PerFrame::create(i, m_device, m_swapchain, m_allocator));
     }
 }
 
 VulkanRenderer::~VulkanRenderer() {
     m_device->waitIdle();
-    if (m_allocator) {
-        vmaDestroyAllocator(m_allocator);
-    }
 }
 
 void VulkanRenderer::flush_frame() {
@@ -219,9 +263,27 @@ void VulkanRenderer::begin_rendering() {
     cmds.beginRendering(info);
 }
 
+void VulkanRenderer::update_and_bind_uniforms() {
+    auto &frame = per_frame();
+    auto &cmds = frame.command_buffer;
+    ((Uniforms *)frame.uniforms.data())->color = Vector4(0, 1, 0, 1);
+    vk::DescriptorBufferInfo buf_info;
+    buf_info.buffer = *frame.uniforms;
+    buf_info.offset = 0;
+    buf_info.range = VK_WHOLE_SIZE;
+    vk::WriteDescriptorSet write;
+    write.dstBinding = 0;
+    write.descriptorCount = 1;
+    write.descriptorType = vk::DescriptorType::eUniformBuffer;
+    write.setBufferInfo(buf_info);
+    cmds.pushDescriptorSetKHR(vk::PipelineBindPoint::eGraphics,
+                              *m_pipeline_layouts[0], 0, write);
+}
+
 void VulkanRenderer::render() {
     auto &frame = per_frame();
     auto &cmds = frame.command_buffer;
+    update_and_bind_uniforms();
     assert(m_graphics_pipelines.size() > 0);
     cmds.bindPipeline(vk::PipelineBindPoint::eGraphics,
                       *m_graphics_pipelines[0]);
