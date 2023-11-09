@@ -6,6 +6,7 @@
 #include "asset.h"
 #include "vulkan/device.h"
 #include "vulkan/memory.h"
+#include "vulkan/mesh.h"
 #include "vulkan/staging.h"
 
 struct PerFrame {
@@ -48,19 +49,28 @@ class VulkanRenderer {
 
 public:
     VulkanRenderer(VulkanDevice device, VulkanSwapchain swapchain);
-    ~VulkanRenderer();
 
     VulkanDevice &device() { return m_device; }
     VulkanSwapchain &swapchain() { return m_swapchain; }
+    const std::shared_ptr<VulkanAllocator> &allocator() const {
+        return m_allocator;
+    }
+    StagingBuffer &staging() { return m_staging; }
+
+    Mesh create_mesh(std::span<const char> vertex_data,
+                     std::span<const uint32_t> index_data);
 
     // XXX: Move these methods to PerFrame class
     void flush_frame();
     void begin_rendering();
     void update_and_bind_uniforms();
     void render();
+    void begin_rendering_meshes();
+    void render_mesh(const Mesh &mesh);
     void end_rendering();
     void acquire_image();
     void present();
+    void wait_idle();
 
     vk::raii::Pipeline &create_graphics_pipeline(AssetApi &assets);
 };

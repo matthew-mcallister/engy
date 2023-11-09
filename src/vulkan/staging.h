@@ -8,11 +8,14 @@
 
 class StagingBuffer {
     const VulkanDevice &m_device;
-    const size_t m_size;
+    const vk::DeviceSize m_size;
     const vk::raii::Semaphore m_semaphore;
     VulkanBuffer m_buffer;
     const vk::raii::CommandPool m_command_pool;
     const vk::raii::CommandBuffer m_command_buffer;
+    vk::DeviceSize m_offset = 0;
+    uint64_t m_pending_batch = 0;
+    bool m_staging = false;
 
     StagingBuffer(const VulkanDevice &device, size_t size,
                   vk::raii::Semaphore semaphore, VulkanBuffer buffer,
@@ -28,6 +31,14 @@ public:
 
     VulkanBuffer &buffer() { return m_buffer; }
     const VulkanBuffer &buffer() const { return m_buffer; }
+    const vk::DeviceSize size() const { return m_size; }
+    const vk::DeviceSize remaining() const { return m_size - m_offset; }
+
+    void begin_staging();
+    uint64_t stage_buffer(std::span<const char> data, VulkanBuffer &dest,
+                          vk::DeviceSize offset);
+    void end_staging(vk::raii::Queue &queue);
+    void wait() const;
 };
 
 #endif

@@ -21,6 +21,7 @@ executable(
     'src/render/texture_map.cpp',
     'src/vulkan/device.cpp',
     'src/vulkan/memory.cpp',
+    'src/vulkan/mesh.cpp',
     'src/vulkan/renderer.cpp',
     'src/vulkan/staging.cpp',
     'src/vulkan/vma.cpp',

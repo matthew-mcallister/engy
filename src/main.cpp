@@ -76,6 +76,19 @@ Vector3 get_cursor_vector() {
 //     return mesh;
 // }
 
+// clang-format off
+const std::array<float, 12> VERTICES = {
+    -0.5, -0.5, 0.0,
+    -0.5,  0.5, 0.0,
+     0.5, -0.5, 0.0,
+     0.5,  0.5, 0.0,
+};
+const std::array<uint32_t, 6> INDICES = {
+    0, 1, 3,
+    0, 3, 2
+};
+// clang-format on
+
 void main_loop(SDL_Window *window) {
     auto resolver = std::unique_ptr<AssetResolver>(
         new DirectoryAssetResolver(get_asset_root()));
@@ -83,9 +96,9 @@ void main_loop(SDL_Window *window) {
     // Renderer renderer{assets};
 
     // TODO: Only set relative mouse modewhen window is focused
-    if (SDL_SetRelativeMouseMode(SDL_TRUE)) {
-        throw SystemException("Failed to capture mouse");
-    }
+    // if (SDL_SetRelativeMouseMode(SDL_TRUE)) {
+    //    throw SystemException("Failed to capture mouse");
+    //}
 
     std::unique_ptr<FirstPersonCameraRig> rig{new FirstPersonCameraRig()};
     State state{std::move(rig)};
@@ -94,6 +107,13 @@ void main_loop(SDL_Window *window) {
     auto swapchain = VulkanSwapchain::create(device, vk::SwapchainKHR{});
     VulkanRenderer renderer = {std::move(device), std::move(swapchain)};
     renderer.create_graphics_pipeline(assets);
+
+    renderer.staging().begin_staging();
+    const auto mesh = renderer.create_mesh(
+        {(const char *)VERTICES.data(), sizeof(float) * VERTICES.size()},
+        INDICES);
+    renderer.staging().end_staging(renderer.device().graphics_queue());
+    renderer.staging().wait();
 
     // renderer.make_image_resident("blocks/dirt.png");
     // auto mesh = create_mesh(renderer.texture_map());
@@ -119,7 +139,7 @@ void main_loop(SDL_Window *window) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) {
-                return;
+                goto finish;
             }
             state.handle_event(event);
         }
@@ -137,7 +157,8 @@ void main_loop(SDL_Window *window) {
         std::chrono::duration<float> dt = now - start;
 
         renderer.begin_rendering();
-        renderer.render();
+        renderer.begin_rendering_meshes();
+        renderer.render_mesh(mesh);
         renderer.end_rendering();
         renderer.present();
         // renderer.prepare_frame(state);
@@ -151,6 +172,9 @@ void main_loop(SDL_Window *window) {
         //  }
         // SDL_GL_SwapWindow(window);
     }
+
+finish:
+    renderer.wait_idle();
 }
 
 int sdl_main() {

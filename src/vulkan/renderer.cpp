@@ -117,7 +117,18 @@ vk::raii::Pipeline &VulkanRenderer::create_graphics_pipeline(AssetApi &assets) {
     fragment_stage.pName = "main";
     stages.push_back(fragment_stage);
 
+    vk::VertexInputAttributeDescription position_attr;
+    position_attr.location = 0;
+    position_attr.binding = 0;
+    position_attr.format = vk::Format::eR32G32B32Sfloat;
+    position_attr.offset = 0;
+    vk::VertexInputBindingDescription vertex_binding;
+    vertex_binding.binding = 0;
+    vertex_binding.stride = 3 * sizeof(float);
+    vertex_binding.inputRate = vk::VertexInputRate::eVertex;
     vk::PipelineVertexInputStateCreateInfo vertex_input;
+    vertex_input.setVertexAttributeDescriptions(position_attr);
+    vertex_input.setVertexBindingDescriptions(vertex_binding);
 
     vk::PipelineInputAssemblyStateCreateInfo input_assembly;
     input_assembly.topology = vk::PrimitiveTopology::eTriangleList;
@@ -204,8 +215,9 @@ VulkanRenderer::VulkanRenderer(VulkanDevice device, VulkanSwapchain swapchain)
     }
 }
 
-VulkanRenderer::~VulkanRenderer() {
-    m_device->waitIdle();
+Mesh VulkanRenderer::create_mesh(std::span<const char> vertex_data,
+                                 std::span<const uint32_t> index_data) {
+    return Mesh{m_allocator, m_staging, vertex_data, index_data};
 }
 
 void VulkanRenderer::flush_frame() {
@@ -280,14 +292,20 @@ void VulkanRenderer::update_and_bind_uniforms() {
                               *m_pipeline_layouts[0], 0, write);
 }
 
-void VulkanRenderer::render() {
+void VulkanRenderer::begin_rendering_meshes() {
     auto &frame = per_frame();
     auto &cmds = frame.command_buffer;
     update_and_bind_uniforms();
     assert(m_graphics_pipelines.size() > 0);
     cmds.bindPipeline(vk::PipelineBindPoint::eGraphics,
                       *m_graphics_pipelines[0]);
-    cmds.draw(6, 1, 0, 0);
+}
+
+void VulkanRenderer::render_mesh(const Mesh &mesh) {
+    auto &frame = per_frame();
+    auto &cmds = frame.command_buffer;
+    mesh.bind(cmds);
+    cmds.drawIndexed(mesh.size(), 1, 0, 0, 0);
 }
 
 void VulkanRenderer::end_rendering() {
@@ -341,4 +359,8 @@ void VulkanRenderer::acquire_image() {
 
 void VulkanRenderer::present() {
     m_swapchain.present(m_device.graphics_queue(), {&*m_present_semaphore, 1});
+}
+
+void VulkanRenderer::wait_idle() {
+    m_device->waitIdle();
 }

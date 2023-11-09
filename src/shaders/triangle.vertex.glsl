@@ -5,15 +5,8 @@ layout(binding = 0) uniform Uniforms {
     vec4 u_color;
 };
 
-vec2 VERTICES[6] = {
-    vec2(-0.5, -0.5),
-    vec2(-0.5, 0.5),
-    vec2(0.5, 0.5),
-    vec2(-0.5, -0.5),
-    vec2(0.5, 0.5),
-    vec2(0.5, -0.5)
-};
+layout(location = 0) in vec3 in_pos;
 
 void main() {
-    gl_Position = vec4(VERTICES[gl_VertexIndex], 0, 1);
+    gl_Position = vec4(in_pos, 1);
 }

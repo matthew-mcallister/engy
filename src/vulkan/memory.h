@@ -11,6 +11,8 @@
 class VulkanAllocation;
 class VulkanBuffer;
 
+// TODO: Buffer suballocation. VMA is quite stupid to not have that as a
+// feature.
 class VulkanAllocator {
     VulkanDevice &m_device;
     VmaAllocator m_allocator;
@@ -84,5 +86,7 @@ public:
     }
     const vk::Buffer &operator*() const { return *m_buffer; }
 };
+
+// TODO: Subbuffers
 
 #endif
