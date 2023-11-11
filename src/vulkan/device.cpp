@@ -176,6 +176,7 @@ VulkanDevice VulkanDevice::create(SDL_Window *window, uint32_t device_id,
     desc_indexing_features.descriptorBindingUpdateUnusedWhilePending = 1;
     desc_indexing_features.descriptorBindingPartiallyBound = 1;
     desc_indexing_features.descriptorBindingVariableDescriptorCount = 1;
+    desc_indexing_features.runtimeDescriptorArray = 1;
 
     vk::PhysicalDeviceFeatures2 features;
     features.pNext = &desc_indexing_features;

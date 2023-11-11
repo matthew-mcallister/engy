@@ -15,7 +15,7 @@ executable(
     'src/math/aabb.cpp',
     'src/math/matrix.cpp',
     'src/math/scene.cpp',
-    'src/render/chunk_mesh.cpp',
+    #'src/render/chunk_mesh.cpp',
     'src/vulkan/device.cpp',
     'src/vulkan/memory.cpp',
     'src/vulkan/mesh.cpp',

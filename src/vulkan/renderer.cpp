@@ -125,12 +125,33 @@ vk::raii::Pipeline &VulkanRenderer::create_graphics_pipeline(AssetApi &assets) {
     position_attr.binding = 0;
     position_attr.format = vk::Format::eR32G32B32Sfloat;
     position_attr.offset = 0;
+    vk::VertexInputAttributeDescription normal_attr;
+    normal_attr.location = 1;
+    normal_attr.binding = 0;
+    normal_attr.format = vk::Format::eR32G32B32Sfloat;
+    normal_attr.offset = 3 * sizeof(float);
+    vk::VertexInputAttributeDescription texcoord_attr;
+    texcoord_attr.location = 2;
+    texcoord_attr.binding = 0;
+    texcoord_attr.format = vk::Format::eR32G32Sfloat;
+    texcoord_attr.offset = 6 * sizeof(float);
+    vk::VertexInputAttributeDescription texture_attr;
+    texture_attr.location = 3;
+    texture_attr.binding = 0;
+    texture_attr.format = vk::Format::eR32Uint;
+    texture_attr.offset = 8 * sizeof(float);
+    std::array<vk::VertexInputAttributeDescription, 4> attrs = {
+        position_attr,
+        normal_attr,
+        texcoord_attr,
+        texture_attr,
+    };
     vk::VertexInputBindingDescription vertex_binding;
     vertex_binding.binding = 0;
-    vertex_binding.stride = 3 * sizeof(float);
+    vertex_binding.stride = 8 * sizeof(float) + sizeof(uint32_t);
     vertex_binding.inputRate = vk::VertexInputRate::eVertex;
     vk::PipelineVertexInputStateCreateInfo vertex_input;
-    vertex_input.setVertexAttributeDescriptions(position_attr);
+    vertex_input.setVertexAttributeDescriptions(attrs);
     vertex_input.setVertexBindingDescriptions(vertex_binding);
 
     vk::PipelineInputAssemblyStateCreateInfo input_assembly;

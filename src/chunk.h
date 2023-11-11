@@ -9,7 +9,10 @@
 
 #include "block.h"
 #include "math/vector.h"
-#include "render/chunk_mesh.h"
+#include "vulkan/mesh.h"
+#include "vulkan/texture_map.h"
+
+class MeshData;
 
 struct ChunkPos {
     int i;
@@ -43,7 +46,7 @@ struct ChunkData {
 class Chunk {
     ChunkPos m_pos;
     ChunkData m_data;
-    std::optional<ChunkMesh> m_mesh;
+    std::optional<Mesh> m_mesh;
     bool m_generated = false;
 
 public:
@@ -55,7 +58,7 @@ public:
     ChunkData &data() { return m_data; }
     const ChunkData &data() const { return m_data; }
 
-    const std::optional<ChunkMesh> &mesh() const { return m_mesh; }
+    const std::optional<Mesh> &mesh() const { return m_mesh; }
 
     void update_mesh(const MeshData &data);
 };
