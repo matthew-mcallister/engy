@@ -1,9 +1,7 @@
 #version 460 core
 #pragma shader_stage vertex
 
-layout(binding = 0) uniform Uniforms {
-    vec4 u_color;
-};
+#include "common.glsl"
 
 layout(location = 0) in vec3 in_pos;
 

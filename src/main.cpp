@@ -1,3 +1,5 @@
+#include "main.h"
+
 #include <chrono>
 #include <iostream>
 
@@ -10,7 +12,6 @@
 #include "math/aabb.h"
 #include "math/vector.h"
 #include "mesh_builder.h"
-#include "render.h"
 #include "vulkan/device.h"
 #include "vulkan/renderer.h"
 
@@ -105,13 +106,14 @@ void main_loop(SDL_Window *window) {
 
     auto device = VulkanDevice::create(window, 0, true);
     auto swapchain = VulkanSwapchain::create(device, vk::SwapchainKHR{});
-    VulkanRenderer renderer = {std::move(device), std::move(swapchain)};
+    VulkanRenderer renderer{assets, std::move(device), std::move(swapchain)};
     renderer.create_graphics_pipeline(assets);
 
     renderer.staging().begin_staging();
     const auto mesh = renderer.create_mesh(
         {(const char *)VERTICES.data(), sizeof(float) * VERTICES.size()},
         INDICES);
+    renderer.load_texture("blocks/dirt.png");
     renderer.staging().end_staging(renderer.device().graphics_queue());
     renderer.staging().wait();
 

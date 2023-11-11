@@ -179,6 +179,7 @@ VulkanDevice VulkanDevice::create(SDL_Window *window, uint32_t device_id,
 
     vk::PhysicalDeviceFeatures2 features;
     features.pNext = &desc_indexing_features;
+    features.features.samplerAnisotropy = 1;
 
     vk::DeviceCreateInfo dev_info;
     dev_info.setQueueCreateInfos(queue_info);

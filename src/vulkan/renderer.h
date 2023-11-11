@@ -8,6 +8,7 @@
 #include "vulkan/memory.h"
 #include "vulkan/mesh.h"
 #include "vulkan/staging.h"
+#include "vulkan/texture_map.h"
 
 struct PerFrame {
     vk::raii::Semaphore end_of_frame_semaphore;
@@ -24,10 +25,12 @@ struct PerFrame {
 };
 
 class VulkanRenderer {
+    AssetApi &m_assets;
     VulkanDevice m_device;
     VulkanSwapchain m_swapchain;
     std::shared_ptr<VulkanAllocator> m_allocator;
     StagingBuffer m_staging;
+    TextureMap m_texture_map;
 
     std::vector<PerFrame> m_per_frame;
     vk::raii::Semaphore m_present_semaphore;
@@ -44,11 +47,14 @@ class VulkanRenderer {
     vk::raii::DescriptorSetLayout &create_set_layout();
     vk::raii::ShaderModule &create_shader_module(std::span<const char> bytes);
     vk::raii::PipelineLayout &create_pipeline_layout();
+    void bind_textures();
+    void update_and_bind_uniforms();
 
     friend class StagingBuffer;
 
 public:
-    VulkanRenderer(VulkanDevice device, VulkanSwapchain swapchain);
+    VulkanRenderer(AssetApi &assets, VulkanDevice device,
+                   VulkanSwapchain swapchain);
 
     VulkanDevice &device() { return m_device; }
     VulkanSwapchain &swapchain() { return m_swapchain; }
@@ -59,11 +65,13 @@ public:
 
     Mesh create_mesh(std::span<const char> vertex_data,
                      std::span<const uint32_t> index_data);
+    uint32_t load_texture(const std::string &path) {
+        return m_texture_map.get(path);
+    }
 
     // XXX: Move these methods to PerFrame class
     void flush_frame();
     void begin_rendering();
-    void update_and_bind_uniforms();
     void render();
     void begin_rendering_meshes();
     void render_mesh(const Mesh &mesh);

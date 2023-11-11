@@ -3,6 +3,7 @@
 
 #include <vk_mem_alloc.h>
 
+#include "image.h"
 #include "vulkan/device.h"
 #include "vulkan/memory.h"
 
@@ -37,6 +38,8 @@ public:
     void begin_staging();
     uint64_t stage_buffer(std::span<const char> data, VulkanBuffer &dest,
                           vk::DeviceSize offset);
+    uint64_t stage_image(const Image &src, VulkanImage &dest,
+                         bool generate_mipmaps = false);
     void end_staging(vk::raii::Queue &queue);
     void wait() const;
 };

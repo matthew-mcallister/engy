@@ -8,8 +8,6 @@
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_raii.hpp>
 
-#include "vulkan/debug.h"
-
 class VulkanSwapchain;
 
 void load_vulkan_library();
@@ -69,10 +67,10 @@ public:
     create_semaphore(vk::SemaphoreType type = vk::SemaphoreType::eBinary) const;
 
     template<typename T>
-    void set_name(const T &object, const char *name) const {
+    void set_name(T object, const char *name) const {
         vk::DebugUtilsObjectNameInfoEXT name_info;
-        name_info.objectType = object_type<T>::value;
-        name_info.objectHandle = *reinterpret_cast<const uint64_t *>(&*object);
+        name_info.objectType = object.objectType;
+        name_info.objectHandle = *reinterpret_cast<const uint64_t *>(&object);
         name_info.pObjectName = name;
         m_device.setDebugUtilsObjectNameEXT(name_info);
     }

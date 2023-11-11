@@ -34,3 +34,8 @@ std::string AssetApi::load_text(const std::string &path) {
     auto bytes = m_resolver->resolve(path);
     return std::string(bytes.begin(), bytes.end());
 }
+
+Image AssetApi::load_image(const std::string &path) {
+    auto bytes = m_resolver->resolve(path);
+    return Image::load(bytes);
+}

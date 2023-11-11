@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "exceptions.h"
+#include "image.h"
 
 typedef char byte;
 
@@ -32,6 +33,7 @@ public:
 
     std::vector<byte> load_blob(const std::string &path);
     std::string load_text(const std::string &path);
+    Image load_image(const std::string &path);
 };
 
 #endif

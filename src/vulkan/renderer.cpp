@@ -50,14 +50,13 @@ PerFrame PerFrame::create(int index, VulkanDevice &device,
     if (device.debug()) {
         std::string name;
         name = std::format("PerFrame[{}].end_of_frame_semaphore", index);
-        device.set_name(semaphore, name.c_str());
+        device.set_name(*semaphore, name.c_str());
         name = std::format("PerFrame[{}].command_pool", index);
-        device.set_name(pool, name.c_str());
+        device.set_name(*pool, name.c_str());
         name = std::format("PerFrame[{}].command_buffer", index);
-        device.set_name(buffer, name.c_str());
-        // FIXME:
-        // name = std::format("PerFrame[{}].uniforms", index);
-        // device.set_name(*uniforms, name.c_str());
+        device.set_name(*buffer, name.c_str());
+        name = std::format("PerFrame[{}].uniforms", index);
+        device.set_name(*uniforms, name.c_str());
     }
 
     return {std::move(semaphore), std::move(pool), std::move(buffer),
@@ -92,10 +91,14 @@ vk::raii::DescriptorSetLayout &VulkanRenderer::create_set_layout() {
 }
 
 vk::raii::PipelineLayout &VulkanRenderer::create_pipeline_layout() {
-    vk::DescriptorSetLayout set_layout = *create_set_layout();
+    vk::DescriptorSetLayout texmap_layout = m_texture_map.heap().layout();
+    vk::DescriptorSetLayout uniform_layout = *create_set_layout();
+    std::array<vk::DescriptorSetLayout, 2> layouts = {texmap_layout,
+                                                      uniform_layout};
     vk::PipelineLayoutCreateInfo info;
-    info.setSetLayouts(set_layout);
+    info.setSetLayouts(layouts);
     auto layout = m_device->createPipelineLayout(info, nullptr);
+    m_device.set_name(*layout, "Renderer.m_pipeline_layouts[0]");
     m_pipeline_layouts.push_back(std::move(layout));
     return m_pipeline_layouts[m_pipeline_layouts.size() - 1];
 }
@@ -181,6 +184,7 @@ vk::raii::Pipeline &VulkanRenderer::create_graphics_pipeline(AssetApi &assets) {
     info.layout = layout;
 
     auto pipeline = m_device->createGraphicsPipeline(nullptr, info, nullptr);
+    m_device.set_name(*pipeline, "Renderer.m_graphics_pipelines[0]");
     m_graphics_pipelines.push_back(std::move(pipeline));
     return m_graphics_pipelines[m_graphics_pipelines.size() - 1];
 }
@@ -204,10 +208,13 @@ std::shared_ptr<VulkanAllocator> create_allocator(VulkanDevice &device) {
     return allocator;
 }
 
-VulkanRenderer::VulkanRenderer(VulkanDevice device, VulkanSwapchain swapchain)
-    : m_device{std::move(device)}, m_swapchain{std::move(swapchain)},
+VulkanRenderer::VulkanRenderer(AssetApi &assets, VulkanDevice device,
+                               VulkanSwapchain swapchain)
+    : m_assets{assets}, m_device{std::move(device)},
+      m_swapchain{std::move(swapchain)},
       m_allocator{create_allocator(m_device)},
       m_staging{StagingBuffer::create(m_allocator, 0x200'0000)},
+      m_texture_map{m_assets, m_allocator, m_staging},
       m_present_semaphore(m_device.create_semaphore()) {
     for (int i = 0; i < 2; i++) {
         m_per_frame.push_back(
@@ -275,6 +282,14 @@ void VulkanRenderer::begin_rendering() {
     cmds.beginRendering(info);
 }
 
+void VulkanRenderer::bind_textures() {
+    auto &frame = per_frame();
+    auto &cmds = frame.command_buffer;
+    const auto &set = m_texture_map.heap().descriptor_set();
+    cmds.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
+                            *m_pipeline_layouts[0], 0, set, nullptr);
+}
+
 void VulkanRenderer::update_and_bind_uniforms() {
     auto &frame = per_frame();
     auto &cmds = frame.command_buffer;
@@ -289,12 +304,13 @@ void VulkanRenderer::update_and_bind_uniforms() {
     write.descriptorType = vk::DescriptorType::eUniformBuffer;
     write.setBufferInfo(buf_info);
     cmds.pushDescriptorSetKHR(vk::PipelineBindPoint::eGraphics,
-                              *m_pipeline_layouts[0], 0, write);
+                              *m_pipeline_layouts[0], 1, write);
 }
 
 void VulkanRenderer::begin_rendering_meshes() {
     auto &frame = per_frame();
     auto &cmds = frame.command_buffer;
+    bind_textures();
     update_and_bind_uniforms();
     assert(m_graphics_pipelines.size() > 0);
     cmds.bindPipeline(vk::PipelineBindPoint::eGraphics,

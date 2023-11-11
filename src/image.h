@@ -5,6 +5,8 @@
 #include <span>
 #include <vector>
 
+#include <vulkan/vulkan.hpp>
+
 enum class PixelFormat {
     R8,
     Rg8,
@@ -12,7 +14,7 @@ enum class PixelFormat {
     Rgba8,
 };
 
-inline int format_size(PixelFormat format) {
+inline uint32_t format_size(PixelFormat format) {
     switch (format) {
     case PixelFormat::R8:
         return 1;
@@ -27,16 +29,31 @@ inline int format_size(PixelFormat format) {
     }
 }
 
-inline GLuint format_to_gl(PixelFormat format) {
+inline vk::Format format_to_vk(PixelFormat format) {
     switch (format) {
     case PixelFormat::R8:
-        return GL_R;
+        return vk::Format::eR8Srgb;
     case PixelFormat::Rg8:
-        return GL_RG;
+        return vk::Format::eR8G8Srgb;
     case PixelFormat::Rgb8:
-        return GL_RGB;
+        return vk::Format::eR8G8B8Srgb;
     case PixelFormat::Rgba8:
-        return GL_RGBA;
+        return vk::Format::eR8G8B8A8Srgb;
+    default:
+        abort();
+    }
+}
+
+inline PixelFormat vk_to_format(vk::Format format) {
+    switch (format) {
+    case vk::Format::eR8Srgb:
+        return PixelFormat::R8;
+    case vk::Format::eR8G8Srgb:
+        return PixelFormat::Rg8;
+    case vk::Format::eR8G8B8Srgb:
+        return PixelFormat::Rgb8;
+    case vk::Format::eR8G8B8A8Srgb:
+        return PixelFormat::Rgba8;
     default:
         abort();
     }
@@ -45,22 +62,24 @@ inline GLuint format_to_gl(PixelFormat format) {
 class Image {
     std::vector<char> m_data;
     PixelFormat m_format;
-    int m_width, m_height;
+    uint32_t m_width, m_height;
 
     Image() = default;
 
     static Image _load(std::span<const char> data, bool as_rgba8);
 
 public:
+    Image(const Image &other) = delete;
+    Image(Image &&other) = default;
+
     std::span<const char> data() const {
         return {m_data.begin(), m_data.end()};
     }
     PixelFormat format() const { return m_format; }
-    int width() const { return m_width; }
-    int height() const { return m_width; }
+    uint32_t width() const { return m_width; }
+    uint32_t height() const { return m_width; }
 
     static Image load(std::span<const char> data);
-    static Image load_rgba8(std::span<const char> data);
 };
 
 #endif

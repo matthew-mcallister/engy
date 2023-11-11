@@ -4,6 +4,7 @@
 #include <tuple>
 
 #include "exceptions.h"
+#include "image.h"
 #include "vulkan/memory.h"
 
 StagingBuffer StagingBuffer::create(std::shared_ptr<VulkanAllocator> allocator,
@@ -57,9 +58,11 @@ uint64_t StagingBuffer::stage_buffer(std::span<const char> data,
         throw OutOfMemoryException("Staging buffer out of memory");
     }
 
+    // Copy to staging buffer
     std::memcpy((void *)((const char *)m_buffer.data() + m_offset), data.data(),
                 data.size());
 
+    // Copy from staging to destination buffer
     vk::BufferCopy2 copy;
     copy.srcOffset = m_offset;
     copy.dstOffset = offset;
@@ -69,6 +72,83 @@ uint64_t StagingBuffer::stage_buffer(std::span<const char> data,
     info.dstBuffer = *dest;
     info.setRegions(copy);
     m_command_buffer.copyBuffer2(info);
+
+    m_offset += data.size();
+    return m_pending_batch + 1;
+}
+
+uint64_t StagingBuffer::stage_image(const Image &src, VulkanImage &dest,
+                                    bool generate_mipmaps) {
+    assert(m_staging);
+    const auto data = src.data();
+    assert(dest.width() == src.width() && dest.height() == src.height() &&
+           dest.depth() == 1);
+    assert(src.format() == vk_to_format(dest.format()));
+    assert(dest.array_layers() == 1);
+    if (m_offset + data.size() > m_size) {
+        throw OutOfMemoryException("Staging buffer out of memory");
+    }
+
+    // Step 1: Write to staging buffer
+    std::memcpy((void *)((const char *)m_buffer.data() + m_offset), data.data(),
+                data.size());
+
+    vk::ImageSubresourceRange range;
+    range.aspectMask = vk::ImageAspectFlagBits::eColor;
+    range.baseMipLevel = 0;
+    range.levelCount = 1;
+    range.baseArrayLayer = 0;
+    range.layerCount = 1;
+
+    // Step 2: Transition to TransferDstOptimal
+    {
+        vk::ImageMemoryBarrier2 img_barrier;
+        img_barrier.dstStageMask = vk::PipelineStageFlagBits2::eAllTransfer;
+        img_barrier.dstAccessMask = vk::AccessFlagBits2::eTransferWrite;
+        img_barrier.oldLayout = vk::ImageLayout::eUndefined;
+        img_barrier.newLayout = vk::ImageLayout::eTransferDstOptimal;
+        img_barrier.image = *dest;
+        img_barrier.subresourceRange = range;
+        vk::DependencyInfo dep;
+        dep.setImageMemoryBarriers(img_barrier);
+        m_command_buffer.pipelineBarrier2(dep);
+    }
+
+    // Step 3: Copy from staging to image
+    vk::BufferImageCopy2 copy;
+    copy.bufferOffset = m_offset;
+    copy.imageSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+    copy.imageSubresource.mipLevel = 0;
+    copy.imageSubresource.baseArrayLayer = 0;
+    copy.imageSubresource.layerCount = 1;
+    copy.imageExtent = dest.extent();
+    vk::CopyBufferToImageInfo2 info;
+    info.srcBuffer = *m_buffer;
+    info.dstImage = *dest;
+    info.dstImageLayout = vk::ImageLayout::eTransferDstOptimal;
+    info.setRegions(copy);
+    m_command_buffer.copyBufferToImage2(info);
+
+    // Step 4: Create mipmaps
+    // Step 4.1: Transition to TransferSrcOptimal
+    // Step 4.2: Copy to mip levels
+    assert(!generate_mipmaps);
+
+    // Step 6: Transition to ShaderReadOnlyOptimal
+    {
+        vk::ImageMemoryBarrier2 img_barrier;
+        img_barrier.srcStageMask = vk::PipelineStageFlagBits2::eAllTransfer;
+        img_barrier.srcAccessMask = vk::AccessFlagBits2::eTransferWrite;
+        img_barrier.dstStageMask = vk::PipelineStageFlagBits2::eFragmentShader;
+        img_barrier.dstAccessMask = vk::AccessFlagBits2::eShaderSampledRead;
+        img_barrier.oldLayout = vk::ImageLayout::eTransferDstOptimal;
+        img_barrier.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+        img_barrier.image = *dest;
+        img_barrier.subresourceRange = range;
+        vk::DependencyInfo dep;
+        dep.setImageMemoryBarriers(img_barrier);
+        m_command_buffer.pipelineBarrier2(dep);
+    }
 
     m_offset += data.size();
     return m_pending_batch + 1;

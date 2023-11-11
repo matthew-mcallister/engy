@@ -6,7 +6,7 @@
 
 #include "block.h"
 #include "chunk.h"
-#include "render/texture_map.h"
+#include "vulkan/texture_map.h"
 
 enum class Axis {
     X,
