@@ -91,8 +91,8 @@ void MeshData::add_face(const BlockFace &face) {
         v.texture = face.texture;
     }
 
-    if (face.dir == Direction::XNeg || face.dir == Direction::YNeg ||
-        face.dir == Direction::ZNeg) {
+    if (face.dir == Direction::XPos || face.dir == Direction::YNeg ||
+        face.dir == Direction::ZPos) {
         // clang-format off
         indices.insert(indices.end(), {
             i0, i0 + 1, i0 + 2,

@@ -191,8 +191,7 @@ vk::raii::Pipeline &VulkanRenderer::create_graphics_pipeline(AssetApi &assets) {
 
     vk::PipelineRasterizationStateCreateInfo raster_state;
     raster_state.polygonMode = vk::PolygonMode::eFill;
-    raster_state.cullMode =
-        vk::CullModeFlagBits::eNone; // FIXME: Backface culling
+    raster_state.cullMode = vk::CullModeFlagBits::eBack;
     raster_state.frontFace = vk::FrontFace::eCounterClockwise;
     raster_state.lineWidth = 1.0;
 

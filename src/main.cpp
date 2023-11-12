@@ -129,9 +129,13 @@ void main_loop(SDL_Window *window) {
     BlockRegistry registry = BlockRegistry::create();
     ChunkMap chunk_map;
 
-    for (int i = -2; i <= 2; i++) {
-        for (int j = -2; j <= 2; j++) {
-            for (int k = -2; k <= 2; k++) {
+    const int I_MIN = -1, I_MAX = 1;
+    const int J_MIN = -1, J_MAX = 1;
+    const int K_MIN = -1, K_MAX = 1;
+
+    for (int i = I_MIN - 1; i <= I_MAX + 1; i++) {
+        for (int j = J_MIN - 1; j <= J_MAX + 1; j++) {
+            for (int k = K_MIN - 1; k <= K_MAX + 1; k++) {
                 chunk_map.generate_chunk({i, j, k});
             }
         }
@@ -141,7 +145,13 @@ void main_loop(SDL_Window *window) {
     const auto mesh = renderer.create_mesh(
         {(const char *)VERTICES.data(), sizeof(float) * VERTICES.size()},
         INDICES);
-    chunk_map.update_mesh(registry, renderer, {0, 0, 0});
+    for (int i = I_MIN; i <= I_MAX; i++) {
+        for (int j = J_MIN; j <= J_MAX; j++) {
+            for (int k = K_MIN; k <= K_MAX; k++) {
+                chunk_map.update_mesh(registry, renderer, {i, j, k});
+            }
+        }
+    }
     renderer.staging().end_staging(renderer.device().graphics_queue());
     renderer.staging().wait();
 
@@ -173,9 +183,9 @@ void main_loop(SDL_Window *window) {
         ViewUniforms view_uniforms{proj, view};
         renderer.update_uniforms(view_uniforms);
         renderer.begin_rendering_meshes();
-        for (int i = -1; i <= 1; i++) {
-            for (int j = -1; j <= 1; j++) {
-                for (int k = -1; k <= 1; k++) {
+        for (int i = I_MIN; i <= I_MAX; i++) {
+            for (int j = J_MIN; j <= J_MAX; j++) {
+                for (int k = K_MIN; k <= K_MAX; k++) {
                     const auto &chunk = chunk_map.at({i, j, k});
                     renderer.render_chunk(chunk);
                 }
