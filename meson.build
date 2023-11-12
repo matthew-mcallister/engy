@@ -1,6 +1,5 @@
 project('engy', 'cpp')
 
-gl = dependency('gl')
 spng = dependency('spng')
 sdl2 = dependency('sdl2')
 
@@ -23,7 +22,7 @@ executable(
     'src/vulkan/staging.cpp',
     'src/vulkan/texture_map.cpp',
     'src/vulkan/vma.cpp',
-    dependencies: [gl, spng, sdl2],
+    dependencies: [spng, sdl2],
     include_directories: [include_directories('src')],
     cpp_args: ['-std=c++20', '-DGL_GLEXT_PROTOTYPES', '-msse4.1', '-Wno-narrowing'],
 )
