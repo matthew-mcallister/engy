@@ -29,7 +29,7 @@ struct BlockFace {
     int k = 0;
     Direction dir = Direction::XPos;
     int rotation = 0;
-    uint16_t texture = 0xffff;
+    uint32_t texture = 0xffff'ffff;
 };
 
 struct BlockVertex {
@@ -45,7 +45,6 @@ struct MeshData {
     std::vector<BlockVertex> vertices;
     std::vector<uint32_t> indices;
 
-    uint32_t base_index() const;
     void add_face(const BlockFace &face);
 };
 

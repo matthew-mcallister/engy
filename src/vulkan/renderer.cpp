@@ -5,14 +5,12 @@
 #include <vk_mem_alloc.h>
 
 #include "asset.h"
+#include "chunk.h"
 #include "exceptions.h"
+#include "math/matrix.h"
 #include "math/vector.h"
 #include "vulkan/memory.h"
 #include "vulkan/renderer.h"
-
-struct Uniforms {
-    Vector4 color;
-};
 
 VulkanBuffer create_uniforms(std::shared_ptr<VulkanAllocator> allocator) {
     vk::BufferCreateInfo buffer_info;
@@ -106,14 +104,14 @@ vk::raii::PipelineLayout &VulkanRenderer::create_pipeline_layout() {
 vk::raii::Pipeline &VulkanRenderer::create_graphics_pipeline(AssetApi &assets) {
     std::vector<vk::PipelineShaderStageCreateInfo> stages;
     auto &vertex_shader =
-        create_shader_module(assets.load_blob("shaders/triangle.vertex.spv"));
+        create_shader_module(assets.load_blob("shaders/chunk.vertex.spv"));
     vk::PipelineShaderStageCreateInfo vertex_stage;
     vertex_stage.stage = vk::ShaderStageFlagBits::eVertex;
     vertex_stage.module = *vertex_shader;
     vertex_stage.pName = "main";
     stages.push_back(vertex_stage);
     auto &fragment_shader =
-        create_shader_module(assets.load_blob("shaders/triangle.fragment.spv"));
+        create_shader_module(assets.load_blob("shaders/chunk.fragment.spv"));
     vk::PipelineShaderStageCreateInfo fragment_stage;
     fragment_stage.stage = vk::ShaderStageFlagBits::eFragment;
     fragment_stage.module = *fragment_shader;
@@ -294,7 +292,7 @@ void VulkanRenderer::begin_rendering() {
     att_info.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
     att_info.loadOp = vk::AttachmentLoadOp::eClear;
     att_info.storeOp = vk::AttachmentStoreOp::eStore;
-    att_info.clearValue.color.float32 = std::array{0.0f, 0.0f, 0.0f, 0.0f};
+    att_info.clearValue.color.float32 = std::array{0.1f, 0.1f, 0.1f, 0.0f};
     vk::RenderingInfo info;
     info.renderArea =
         vk::Rect2D{{}, vk::Extent2D{m_swapchain.width(), m_swapchain.height()}};
@@ -311,10 +309,14 @@ void VulkanRenderer::bind_textures() {
                             *m_pipeline_layouts[0], 0, set, nullptr);
 }
 
-void VulkanRenderer::update_and_bind_uniforms() {
+void VulkanRenderer::update_uniforms(const ViewUniforms &view) {
+    auto &frame = per_frame();
+    memcpy(frame.uniforms.data(), &view, sizeof(ViewUniforms));
+}
+
+void VulkanRenderer::bind_uniforms() {
     auto &frame = per_frame();
     auto &cmds = frame.command_buffer;
-    ((Uniforms *)frame.uniforms.data())->color = Vector4(0, 1, 0, 1);
     vk::DescriptorBufferInfo buf_info;
     buf_info.buffer = *frame.uniforms;
     buf_info.offset = 0;
@@ -331,18 +333,33 @@ void VulkanRenderer::update_and_bind_uniforms() {
 void VulkanRenderer::begin_rendering_meshes() {
     auto &frame = per_frame();
     auto &cmds = frame.command_buffer;
+    m_instance = 0;
     bind_textures();
-    update_and_bind_uniforms();
+    bind_uniforms();
     assert(m_graphics_pipelines.size() > 0);
     cmds.bindPipeline(vk::PipelineBindPoint::eGraphics,
                       *m_graphics_pipelines[0]);
 }
 
-void VulkanRenderer::render_mesh(const Mesh &mesh) {
+void VulkanRenderer::render_mesh(const Mesh &mesh, Matrix4 instance) {
     auto &frame = per_frame();
     auto &cmds = frame.command_buffer;
+    Uniforms *uniforms = (Uniforms *)frame.uniforms.data();
+    uniforms->instance[m_instance] = instance;
     mesh.bind(cmds);
-    cmds.drawIndexed(mesh.size(), 1, 0, 0, 0);
+    cmds.drawIndexed(mesh.size(), 1, 0, 0, m_instance);
+    m_instance++;
+}
+
+void VulkanRenderer::render_chunk(const Chunk &chunk) {
+    const auto &mesh = chunk.mesh();
+    if (!mesh) {
+        return;
+    }
+
+    auto instance = Matrix4::identity();
+    instance[3] = chunk.pos().offset();
+    render_mesh(*mesh, instance);
 }
 
 void VulkanRenderer::end_rendering() {

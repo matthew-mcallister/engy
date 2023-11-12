@@ -4,11 +4,24 @@
 #include <vk_mem_alloc.h>
 
 #include "asset.h"
+#include "math/matrix.h"
 #include "vulkan/device.h"
 #include "vulkan/memory.h"
 #include "vulkan/mesh.h"
 #include "vulkan/staging.h"
 #include "vulkan/texture_map.h"
+
+class Chunk;
+
+struct ViewUniforms {
+    Matrix4 projection;
+    Matrix4 view;
+};
+
+struct Uniforms {
+    ViewUniforms view_uniforms;
+    Matrix4 instance[512];
+};
 
 struct PerFrame {
     vk::raii::Semaphore end_of_frame_semaphore;
@@ -41,6 +54,7 @@ class VulkanRenderer {
     std::vector<vk::raii::Pipeline> m_graphics_pipelines;
 
     uint64_t m_frame = 0;
+    uint32_t m_instance = 0;
 
     PerFrame &per_frame() { return m_per_frame[m_frame % m_per_frame.size()]; }
 
@@ -48,7 +62,7 @@ class VulkanRenderer {
     vk::raii::ShaderModule &create_shader_module(std::span<const char> bytes);
     vk::raii::PipelineLayout &create_pipeline_layout();
     void bind_textures();
-    void update_and_bind_uniforms();
+    void bind_uniforms();
 
     friend class StagingBuffer;
 
@@ -62,6 +76,7 @@ public:
         return m_allocator;
     }
     StagingBuffer &staging() { return m_staging; }
+    TextureMap &textures() { return m_texture_map; }
 
     Mesh create_mesh(std::span<const char> vertex_data,
                      std::span<const uint32_t> index_data);
@@ -72,9 +87,10 @@ public:
     // XXX: Move these methods to PerFrame class
     void flush_frame();
     void begin_rendering();
-    void render();
+    void update_uniforms(const ViewUniforms &view);
     void begin_rendering_meshes();
-    void render_mesh(const Mesh &mesh);
+    void render_mesh(const Mesh &mesh, Matrix4 instance);
+    void render_chunk(const Chunk &chunk);
     void end_rendering();
     void acquire_image();
     void present();

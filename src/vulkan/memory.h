@@ -67,6 +67,15 @@ public:
         }
     }
 
+    VulkanAllocation &operator=(VulkanAllocation &&other) {
+        m_allocator = std::move(other.m_allocator);
+        m_allocation = other.m_allocation;
+        other.m_allocation = 0;
+        m_info = other.m_info;
+        return *this;
+    }
+    VulkanAllocation &operator=(const VulkanAllocation &other) = delete;
+
     vk::DeviceSize size() const { return m_info.size; }
     void *data() const { return m_info.pMappedData; }
 };
@@ -83,12 +92,10 @@ class VulkanBuffer : public VulkanAllocation {
           m_buffer{std::move(buffer)} {}
 
 public:
+    VulkanBuffer(VulkanBuffer &&other) = default;
     VulkanBuffer(const VulkanBuffer &other) = delete;
-    VulkanBuffer(VulkanBuffer &&other)
-        : VulkanBuffer(std::move(other.m_allocator), other.m_allocation,
-                       other.m_info, std::move(other.m_buffer)) {
-        other.m_allocation = 0;
-    }
+    VulkanBuffer &operator=(VulkanBuffer &&other) = default;
+    VulkanBuffer &operator=(const VulkanBuffer &other) = delete;
     const vk::Buffer &operator*() const { return *m_buffer; }
 };
 
@@ -113,14 +120,10 @@ class VulkanImage : VulkanAllocation {
           m_array_layers{array_layers}, m_format{format} {}
 
 public:
+    VulkanImage(VulkanImage &&other) = default;
     VulkanImage(const VulkanImage &other) = delete;
-    VulkanImage(VulkanImage &&other)
-        : VulkanImage(std::move(other.m_allocator), other.m_allocation,
-                      other.m_info, std::move(other.m_image), other.m_extent,
-                      other.m_mip_levels, other.m_array_layers,
-                      other.m_format) {
-        other.m_allocation = 0;
-    }
+    VulkanImage &operator=(VulkanImage &&other) = default;
+    VulkanImage &operator=(const VulkanImage &other) = delete;
 
     const vk::Image &operator*() const { return *m_image; }
 

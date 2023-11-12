@@ -50,12 +50,8 @@ Direction axis_to_dir_neg(Axis axis) {
     }
 }
 
-uint32_t MeshData::base_index() const {
-    return vertices.size() / 6;
-}
-
 void MeshData::add_face(const BlockFace &face) {
-    uint32_t i0 = base_index();
+    uint32_t i0 = vertices.size();
     int i = face.i, j = face.j, k = face.k;
 
     BlockVertex vs[4];
@@ -65,8 +61,8 @@ void MeshData::add_face(const BlockFace &face) {
         // clang-format off
         vs[0].pos = {i, j,     k    };
         vs[1].pos = {i, j + 1, k    };
-        vs[2].pos = {i, j,     k + 1};
-        vs[3].pos = {i, j + 1, k + 1};
+        vs[2].pos = {i, j + 1, k + 1};
+        vs[3].pos = {i, j,     k + 1};
         // clang-format on
         break;
     case Direction::YPos:
@@ -74,8 +70,8 @@ void MeshData::add_face(const BlockFace &face) {
         // clang-format off
         vs[0].pos = {i,     j, k    };
         vs[1].pos = {i + 1, j, k    };
-        vs[2].pos = {i,     j, k + 1};
-        vs[3].pos = {i + 1, j, k + 1};
+        vs[2].pos = {i + 1, j, k + 1};
+        vs[3].pos = {i,     j, k + 1};
         // clang-format on
         break;
     case Direction::ZPos:
@@ -83,8 +79,8 @@ void MeshData::add_face(const BlockFace &face) {
         // clang-format off
         vs[0].pos = {i,     j,     k};
         vs[1].pos = {i + 1, j,     k};
-        vs[2].pos = {i,     j + 1, k};
-        vs[3].pos = {i + 1, j + 1, k};
+        vs[2].pos = {i + 1, j + 1, k};
+        vs[3].pos = {i,     j + 1, k};
         // clang-format on
         break;
     }
@@ -99,14 +95,14 @@ void MeshData::add_face(const BlockFace &face) {
         face.dir == Direction::ZNeg) {
         // clang-format off
         indices.insert(indices.end(), {
-            i0, i0 + 3, i0 + 1,
+            i0, i0 + 1, i0 + 2,
             i0, i0 + 2, i0 + 3,
         });
         // clang-format on
     } else {
         // clang-format off
         indices.insert(indices.end(), {
-            i0, i0 + 1, i0 + 3,
+            i0, i0 + 2, i0 + 1,
             i0, i0 + 3, i0 + 2,
         });
         // clang-format on
@@ -115,11 +111,11 @@ void MeshData::add_face(const BlockFace &face) {
     std::array<float, 2> tex_coords[4] = {
         {0, 0},
         {1, 0},
-        {0, 1},
         {1, 1},
+        {0, 1},
     };
     for (int i = 0; i < 4; i++) {
-        vs[i].texcoord = tex_coords[i + face.rotation];
+        vs[i].texcoord = tex_coords[(i + face.rotation) % 4];
     }
 
     vertices.push_back(vs[0]);
@@ -145,12 +141,10 @@ void ChunkMeshBuilder::add_face(const BlockInfo &info, int i, int j, int k,
         index = 1;
     }
 
-    auto texture = m_texture_map.get(info.textures[index]);
-    assert(texture);
-    face.texture = *texture;
+    face.texture = m_texture_map.get(info.textures[index]);
 
     if (info.rotate[index]) {
-        face.rotation = rand();
+        face.rotation = rand() % 4;
     }
 
     m_faces.push_back(face);
@@ -201,10 +195,14 @@ auto generate_mesh(const BlockRegistry &block_registry, TextureMap &texture_map,
     };
     const auto get_block = [chunks](int i, int j, int k) -> const Block & {
         // Some indexing trickery so we don't call map.at for every single block
-        int chunk_index = (i >> 3) + 2 * (j >> 3) + 3 * (k >> 3);
+        unsigned int chunk_index = -(i >> 3) - 2 * (j >> 3) - 3 * (k >> 3);
+        assert(chunk_index < 4);
         const auto &blocks = chunks[chunk_index]->data().blocks;
-        return blocks[(i + 8) % 8][(j + 8) % 8][(k + 8) * 8];
+        return blocks[(i + 8) % 8][(j + 8) % 8][(k + 8) % 8];
     };
+    for (const Chunk *chunk : chunks) {
+        assert(chunk->generated());
+    }
 
     for (int i = 0; i < 8; i++) {
         for (int j = 0; j < 8; j++) {

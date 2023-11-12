@@ -10,6 +10,8 @@
 #include "block.h"
 #include "math/vector.h"
 #include "vulkan/mesh.h"
+#include "vulkan/renderer.h"
+#include "vulkan/staging.h"
 #include "vulkan/texture_map.h"
 
 class MeshData;
@@ -49,6 +51,8 @@ class Chunk {
     std::optional<Mesh> m_mesh;
     bool m_generated = false;
 
+    friend class ChunkMap;
+
 public:
     Chunk() {}
 
@@ -57,10 +61,10 @@ public:
 
     ChunkData &data() { return m_data; }
     const ChunkData &data() const { return m_data; }
-
     const std::optional<Mesh> &mesh() const { return m_mesh; }
+    bool generated() const { return m_generated; }
 
-    void update_mesh(const MeshData &data);
+    void update_mesh(VulkanRenderer &renderer, const MeshData &data);
 };
 
 class ChunkMap {
@@ -75,7 +79,7 @@ public:
 
     void generate_chunk(ChunkPos pos);
     void update_mesh(const BlockRegistry &block_registry,
-                     TextureMap &texture_map, ChunkPos pos);
+                     VulkanRenderer &renderer, ChunkPos pos);
 };
 
 #endif

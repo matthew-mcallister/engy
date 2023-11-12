@@ -3,7 +3,7 @@ GLSLC ?= glslc
 
 SHADER_SOURCE_DIR := src/shaders
 SHADER_BUILD_DIR := $(BUILDDIR)/shaders
-GLSL_FILE_NAMES := triangle.vertex.glsl triangle.fragment.glsl
+GLSL_FILE_NAMES := chunk.vertex.glsl chunk.fragment.glsl
 GLSL_FILES := $(patsubst %,$(SHADER_SOURCE_DIR)/%,$(GLSL_FILE_NAMES))
 SPV_FILES := $(patsubst %.glsl,$(SHADER_BUILD_DIR)/%.spv,$(GLSL_FILE_NAMES))
 

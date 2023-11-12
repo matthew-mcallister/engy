@@ -10,6 +10,7 @@
 #include "config.h"
 #include "exceptions.h"
 #include "math/aabb.h"
+#include "math/scene.h"
 #include "math/vector.h"
 #include "mesh_builder.h"
 #include "vulkan/device.h"
@@ -19,11 +20,38 @@ std::string get_asset_root() {
     return std::getenv("ASSET_PATH");
 }
 
+void set_relative_mouse(bool enable) {
+    if (SDL_SetRelativeMouseMode(enable ? SDL_TRUE : SDL_FALSE)) {
+        throw SystemException("Failed to capture mouse");
+    }
+}
+
+void State::set_focus(bool focused) {
+    m_focused = focused;
+    set_relative_mouse(focused);
+}
+
 void State::handle_event(const SDL_Event &event) {
     const auto mouse_buttons = SDL_GetMouseState(nullptr, nullptr);
     const auto *keyboard_state = SDL_GetKeyboardState(nullptr);
+
+    if (event.type == SDL_WINDOWEVENT) {
+        switch (event.window.event) {
+        case SDL_WINDOWEVENT_FOCUS_GAINED:
+            set_focus(true);
+            break;
+        case SDL_WINDOWEVENT_FOCUS_LOST:
+            set_focus(false);
+            break;
+        }
+    }
+    if (!m_focused) {
+        return;
+    }
+
     switch (event.type) {
     case SDL_MOUSEMOTION: {
+        // TODO: Only handle inputs if keyboard focus is acquired
         bool dragging = !!(mouse_buttons & SDL_BUTTON(2));
         auto dx = event.motion.xrel, dy = event.motion.yrel;
         if (dragging) {
@@ -66,16 +94,10 @@ Vector3 get_cursor_vector() {
     return vec3(vx, vy, 1).normalized();
 }
 
-// ChunkMesh create_mesh(TextureMap &textures) {
-//     MeshData data;
-//     BlockFace face;
-//     face.texture = *textures.get("blocks/dirt.png");
-//     data.add_face(face);
-//
-//     ChunkMesh mesh;
-//     mesh.update(data);
-//     return mesh;
-// }
+Matrix4 get_projection() {
+    float aspect = static_cast<float>(WINDOW_WIDTH) / WINDOW_HEIGHT;
+    return scene::projection(FOVY, aspect, Z_NEAR, Z_FAR);
+}
 
 // clang-format off
 const std::array<float, 36> VERTICES = {
@@ -96,11 +118,6 @@ void main_loop(SDL_Window *window) {
     AssetApi assets{std::move(resolver)};
     // Renderer renderer{assets};
 
-    // TODO: Only set relative mouse modewhen window is focused
-    // if (SDL_SetRelativeMouseMode(SDL_TRUE)) {
-    //    throw SystemException("Failed to capture mouse");
-    //}
-
     std::unique_ptr<FirstPersonCameraRig> rig{new FirstPersonCameraRig()};
     State state{std::move(rig)};
 
@@ -109,32 +126,24 @@ void main_loop(SDL_Window *window) {
     VulkanRenderer renderer{assets, std::move(device), std::move(swapchain)};
     renderer.create_graphics_pipeline(assets);
 
+    BlockRegistry registry = BlockRegistry::create();
+    ChunkMap chunk_map;
+
+    for (int i = -2; i <= 2; i++) {
+        for (int j = -2; j <= 2; j++) {
+            for (int k = -2; k <= 2; k++) {
+                chunk_map.generate_chunk({i, j, k});
+            }
+        }
+    }
+
     renderer.staging().begin_staging();
     const auto mesh = renderer.create_mesh(
         {(const char *)VERTICES.data(), sizeof(float) * VERTICES.size()},
         INDICES);
-    renderer.load_texture("blocks/dirt.png");
+    chunk_map.update_mesh(registry, renderer, {0, 0, 0});
     renderer.staging().end_staging(renderer.device().graphics_queue());
     renderer.staging().wait();
-
-    // renderer.make_image_resident("blocks/dirt.png");
-    // auto mesh = create_mesh(renderer.texture_map());
-
-    // ChunkMap chunk_map;
-    // for (int i = -2; i <= 2; i++) {
-    //     for (int j = -2; j <= 2; j++) {
-    //         for (int k = -2; k <= 2; k++) {
-    //             chunk_map.generate_chunk({i, j, k});
-    //         }
-    //     }
-    // }
-    // for (int i = -1; i <= 1; i++) {
-    //     for (int j = -1; j <= 1; j++) {
-    //         for (int k = -1; k <= 1; k++) {
-    //             chunk_map.update_mesh({i, j, k});
-    //         }
-    //     }
-    // }
 
     auto start = std::chrono::steady_clock::now();
     while (1) {
@@ -159,20 +168,15 @@ void main_loop(SDL_Window *window) {
         std::chrono::duration<float> dt = now - start;
 
         renderer.begin_rendering();
+        auto proj = get_projection();
+        auto view = state.rig().reverse_transform();
+        ViewUniforms view_uniforms{proj, view};
+        renderer.update_uniforms(view_uniforms);
         renderer.begin_rendering_meshes();
-        renderer.render_mesh(mesh);
+        const auto &chunk = chunk_map.at({0, 0, 0});
+        renderer.render_chunk(chunk);
         renderer.end_rendering();
         renderer.present();
-        // renderer.prepare_frame(state);
-        // renderer.render_mesh(mesh, Matrix4::identity());
-        //  for (int i = -1; i <= 1; i++) {
-        //      for (int j = -1; j <= 1; j++) {
-        //          for (int k = -1; k <= 1; k++) {
-        //              renderer.render_chunk(chunk_map[{i, j, k}]);
-        //          }
-        //      }
-        //  }
-        // SDL_GL_SwapWindow(window);
     }
 
 finish:

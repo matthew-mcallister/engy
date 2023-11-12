@@ -10,15 +10,16 @@
 class State {
     std::unique_ptr<CameraRig> m_rig;
     bool m_highlight = false;
+    bool m_focused = false;
 
 public:
     State(std::unique_ptr<CameraRig> &&rig) : m_rig{std::move(rig)} {}
 
     CameraRig &rig() { return *m_rig; }
     const CameraRig &rig() const { return *m_rig; }
-
     bool &highlight() { return m_highlight; }
     const bool &highlight() const { return m_highlight; }
+    void set_focus(bool focused);
 
     void handle_event(const SDL_Event &event);
     void ticker(const uint8_t *keystate);

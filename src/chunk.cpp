@@ -1,11 +1,14 @@
 #include <cassert>
 #include <cmath>
 #include <numbers>
+#include <span>
 #include <vector>
 
 #include "block.h"
 #include "chunk.h"
 #include "mesh_builder.h"
+#include "util.h"
+#include "vulkan/renderer.h"
 
 using std::numbers::pi;
 
@@ -13,21 +16,20 @@ bool Block::is_solid() const {
     return type != BlockType::Empty;
 }
 
-void Chunk::update_mesh(const MeshData &data) {
-    if (data.vertices.empty()) {
-        m_mesh.reset();
+void Chunk::update_mesh(VulkanRenderer &renderer, const MeshData &data) {
+    m_mesh.reset();
+    if (data.vertices.empty() || data.indices.empty()) {
         return;
     }
-    if (!m_mesh) {
-        m_mesh = ChunkMesh();
-    }
-    m_mesh->update(data);
+    m_mesh =
+        renderer.create_mesh(as_bytes(std::span{data.vertices}), data.indices);
 }
 
 void ChunkMap::update_mesh(const BlockRegistry &block_registry,
-                           TextureMap &texture_map, ChunkPos pos) {
-    const auto data = generate_mesh(block_registry, texture_map, *this, pos);
-    (*this)[pos].update_mesh(data);
+                           VulkanRenderer &renderer, ChunkPos pos) {
+    const auto data =
+        generate_mesh(block_registry, renderer.textures(), *this, pos);
+    (*this)[pos].update_mesh(renderer, data);
 }
 
 float f(float x, float y) {
@@ -36,6 +38,9 @@ float f(float x, float y) {
 
 void ChunkMap::generate_chunk(ChunkPos pos) {
     auto &chunk = (*this)[pos];
+    if (chunk.m_generated) {
+        return;
+    }
     chunk.pos() = pos;
     auto &blocks = chunk.data().blocks;
     for (int i = 0; i < 8; i++) {
@@ -47,4 +52,5 @@ void ChunkMap::generate_chunk(ChunkPos pos) {
             }
         }
     }
+    chunk.m_generated = true;
 }

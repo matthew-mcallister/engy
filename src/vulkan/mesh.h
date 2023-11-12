@@ -18,6 +18,11 @@ public:
     Mesh(std::shared_ptr<VulkanAllocator> allocator, StagingBuffer &staging,
          std::span<const char> vertex_data,
          std::span<const uint32_t> index_data);
+    Mesh(Mesh &&other) = default;
+    Mesh(const Mesh &other) = delete;
+
+    Mesh &operator=(Mesh &&other) = default;
+    Mesh &operator=(const Mesh &other) = delete;
 
     uint32_t size() const { return m_size; }
     void bind(vk::raii::CommandBuffer &cmds) const;
