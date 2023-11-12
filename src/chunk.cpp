@@ -47,8 +47,9 @@ void ChunkMap::generate_chunk(ChunkPos pos) {
         for (int j = 0; j < 8; j++) {
             for (int k = 0; k < 8; k++) {
                 bool solid = 8 * pos.k + k <= f(i, j);
-                blocks[i][j][k].type =
-                    solid ? BlockType::Dirt : BlockType::Empty;
+                const auto type =
+                    (i + j + k) % 3 == 0 ? BlockType::Grass : BlockType::Dirt;
+                blocks[i][j][k].type = solid ? type : BlockType::Empty;
             }
         }
     }

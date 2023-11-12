@@ -8,6 +8,7 @@
 enum class BlockType {
     Empty = 0,
     Dirt = 1,
+    Grass = 2,
 };
 
 struct BlockInfo {
@@ -25,7 +26,7 @@ public:
 
     static BlockRegistry create();
 
-    void add(BlockType type, BlockInfo &&info);
+    void add(BlockInfo &&info);
     const BlockInfo &get(BlockType type) const;
 };
 

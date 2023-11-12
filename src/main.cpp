@@ -173,8 +173,14 @@ void main_loop(SDL_Window *window) {
         ViewUniforms view_uniforms{proj, view};
         renderer.update_uniforms(view_uniforms);
         renderer.begin_rendering_meshes();
-        const auto &chunk = chunk_map.at({0, 0, 0});
-        renderer.render_chunk(chunk);
+        for (int i = -1; i <= 1; i++) {
+            for (int j = -1; j <= 1; j++) {
+                for (int k = -1; k <= 1; k++) {
+                    const auto &chunk = chunk_map.at({i, j, k});
+                    renderer.render_chunk(chunk);
+                }
+            }
+        }
         renderer.end_rendering();
         renderer.present();
     }

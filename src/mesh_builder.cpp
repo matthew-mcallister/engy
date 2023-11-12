@@ -109,10 +109,10 @@ void MeshData::add_face(const BlockFace &face) {
     }
 
     std::array<float, 2> tex_coords[4] = {
-        {0, 0},
-        {1, 0},
-        {1, 1},
         {0, 1},
+        {1, 1},
+        {1, 0},
+        {0, 0},
     };
     for (int i = 0; i < 4; i++) {
         vs[i].texcoord = tex_coords[(i + face.rotation) % 4];

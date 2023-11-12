@@ -79,9 +79,9 @@ vk::raii::Sampler TextureMap::create_sampler(VulkanDevice &device) {
         properties.properties.limits.maxSamplerAnisotropy;
 
     vk::SamplerCreateInfo info;
-    info.magFilter = vk::Filter::eLinear;
-    info.minFilter = vk::Filter::eLinear;
-    info.mipmapMode = vk::SamplerMipmapMode::eLinear;
+    info.magFilter = vk::Filter::eNearest;
+    info.minFilter = vk::Filter::eNearest;
+    info.mipmapMode = vk::SamplerMipmapMode::eNearest;
     info.addressModeU = vk::SamplerAddressMode::eRepeat;
     info.addressModeV = vk::SamplerAddressMode::eRepeat;
     info.addressModeW = vk::SamplerAddressMode::eRepeat;

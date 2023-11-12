@@ -7,12 +7,20 @@ BlockRegistry BlockRegistry::create() {
         {{"blocks/dirt.png"}, {"blocks/dirt.png"}, {"blocks/dirt.png"}},
         {true, true, true},
     };
-    registry.add(BlockType::Dirt, std::move(dirt));
+    registry.add(std::move(dirt));
+    BlockInfo grass = {
+        BlockType::Grass,
+        {{"blocks/grass_block_top.png"},
+         {"blocks/grass_block_side.png"},
+         {"blocks/dirt.png"}},
+        {true, false, true},
+    };
+    registry.add(std::move(grass));
     return registry;
 }
 
-void BlockRegistry::add(BlockType type, BlockInfo &&info) {
-    m_block_info.insert({type, std::move(info)});
+void BlockRegistry::add(BlockInfo &&info) {
+    m_block_info.insert({info.type, std::move(info)});
 }
 
 const BlockInfo &BlockRegistry::get(BlockType type) const {
