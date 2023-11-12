@@ -26,8 +26,28 @@ VulkanBuffer create_uniforms(std::shared_ptr<VulkanAllocator> allocator) {
                                           alloc_info);
 }
 
+VulkanImage create_depth_buffer(const VulkanSwapchain &swapchain,
+                                std::shared_ptr<VulkanAllocator> allocator) {
+    vk::ImageCreateInfo info;
+    info.imageType = vk::ImageType::e2D;
+    info.format = vk::Format::eD32Sfloat;
+    info.extent = vk::Extent3D{swapchain.width(), swapchain.height(), 1};
+    info.mipLevels = 1;
+    info.arrayLayers = 1;
+    info.samples = vk::SampleCountFlagBits::e1;
+    info.tiling = vk::ImageTiling::eOptimal;
+    info.usage = vk::ImageUsageFlagBits::eDepthStencilAttachment;
+    info.initialLayout = vk::ImageLayout::eUndefined;
+    VmaAllocationCreateInfo alloc_info;
+    memset(&alloc_info, 0, sizeof(VmaAllocationCreateInfo));
+    alloc_info.usage = VMA_MEMORY_USAGE_AUTO;
+    alloc_info.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+    return VulkanAllocator::create_image(std::move(allocator), info,
+                                         alloc_info);
+}
+
 PerFrame PerFrame::create(int index, VulkanDevice &device,
-                          VulkanSwapchain &swapchain,
+                          const VulkanSwapchain &swapchain,
                           std::shared_ptr<VulkanAllocator> allocator) {
     auto semaphore = device.create_semaphore(vk::SemaphoreType::eTimeline);
 
@@ -43,6 +63,7 @@ PerFrame PerFrame::create(int index, VulkanDevice &device,
     auto buffers = device->allocateCommandBuffers(alloc_info);
     auto &buffer = buffers[0];
 
+    auto depth_buffer = create_depth_buffer(swapchain, allocator);
     auto uniforms = create_uniforms(std::move(allocator));
 
     if (device.debug()) {
@@ -58,7 +79,7 @@ PerFrame PerFrame::create(int index, VulkanDevice &device,
     }
 
     return {std::move(semaphore), std::move(pool), std::move(buffer),
-            std::move(uniforms)};
+            std::move(depth_buffer), std::move(uniforms)};
 }
 
 vk::raii::ShaderModule &
@@ -178,6 +199,11 @@ vk::raii::Pipeline &VulkanRenderer::create_graphics_pipeline(AssetApi &assets) {
     vk::PipelineMultisampleStateCreateInfo multisample_state;
     multisample_state.rasterizationSamples = vk::SampleCountFlagBits::e1;
 
+    vk::PipelineDepthStencilStateCreateInfo depth_state;
+    depth_state.depthTestEnable = 1;
+    depth_state.depthWriteEnable = 1;
+    depth_state.depthCompareOp = vk::CompareOp::eGreater;
+
     vk::PipelineColorBlendAttachmentState attachment;
     attachment.colorWriteMask =
         vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
@@ -188,6 +214,7 @@ vk::raii::Pipeline &VulkanRenderer::create_graphics_pipeline(AssetApi &assets) {
     vk::PipelineRenderingCreateInfo rendering_info;
     vk::Format color_format = m_swapchain.image_format();
     rendering_info.setColorAttachmentFormats(color_format);
+    rendering_info.depthAttachmentFormat = vk::Format::eD32Sfloat;
 
     const vk::PipelineLayout &layout = *create_pipeline_layout();
 
@@ -199,6 +226,7 @@ vk::raii::Pipeline &VulkanRenderer::create_graphics_pipeline(AssetApi &assets) {
     info.pViewportState = &viewport_state;
     info.pRasterizationState = &raster_state;
     info.pMultisampleState = &multisample_state;
+    info.pDepthStencilState = &depth_state;
     info.pColorBlendState = &color_blend;
     info.layout = layout;
 
@@ -283,21 +311,45 @@ void VulkanRenderer::begin_rendering() {
     barrier.subresourceRange = vk::ImageSubresourceRange{
         vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1,
     };
+    vk::ImageMemoryBarrier2 depth_barrier;
+    depth_barrier.srcStageMask = vk::PipelineStageFlagBits2::eLateFragmentTests;
+    depth_barrier.srcAccessMask =
+        vk::AccessFlagBits2::eDepthStencilAttachmentRead |
+        vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
+    depth_barrier.dstStageMask =
+        vk::PipelineStageFlagBits2::eEarlyFragmentTests;
+    depth_barrier.dstAccessMask =
+        vk::AccessFlagBits2::eDepthStencilAttachmentRead |
+        vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
+    depth_barrier.oldLayout = vk::ImageLayout::eUndefined;
+    depth_barrier.newLayout = vk::ImageLayout::eDepthAttachmentOptimal;
+    depth_barrier.image = *frame.depth_buffer;
+    depth_barrier.subresourceRange = vk::ImageSubresourceRange{
+        vk::ImageAspectFlagBits::eDepth, 0, 1, 0, 1,
+    };
+    std::array<vk::ImageMemoryBarrier2, 2> barriers = {barrier, depth_barrier};
     vk::DependencyInfo dep;
-    dep.setImageMemoryBarriers(barrier);
+    dep.setImageMemoryBarriers(barriers);
     cmds.pipelineBarrier2(dep);
 
-    vk::RenderingAttachmentInfo att_info;
-    att_info.imageView = *m_swapchain.current_image_view();
-    att_info.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
-    att_info.loadOp = vk::AttachmentLoadOp::eClear;
-    att_info.storeOp = vk::AttachmentStoreOp::eStore;
-    att_info.clearValue.color.float32 = std::array{0.1f, 0.1f, 0.1f, 0.0f};
+    vk::RenderingAttachmentInfo color;
+    color.imageView = *m_swapchain.current_image_view();
+    color.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
+    color.loadOp = vk::AttachmentLoadOp::eClear;
+    color.storeOp = vk::AttachmentStoreOp::eStore;
+    color.clearValue.color.float32 = std::array{0.1f, 0.1f, 0.1f, 0.0f};
+    vk::RenderingAttachmentInfo depth;
+    depth.imageView = frame.depth_buffer.create_view();
+    depth.imageLayout = vk::ImageLayout::eDepthAttachmentOptimal;
+    depth.loadOp = vk::AttachmentLoadOp::eClear;
+    depth.storeOp = vk::AttachmentStoreOp::eStore;
+    depth.clearValue.depthStencil.depth = 0.0;
     vk::RenderingInfo info;
     info.renderArea =
         vk::Rect2D{{}, vk::Extent2D{m_swapchain.width(), m_swapchain.height()}};
     info.layerCount = 1;
-    info.setColorAttachments(att_info);
+    info.setColorAttachments(color);
+    info.pDepthAttachment = &depth;
     cmds.beginRendering(info);
 }
 

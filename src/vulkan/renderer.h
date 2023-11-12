@@ -28,12 +28,13 @@ struct PerFrame {
     vk::raii::CommandPool command_pool;
     vk::raii::CommandBuffer command_buffer;
 
+    VulkanImage depth_buffer;
     VulkanBuffer uniforms;
 
     uint64_t frame_in_flight = 0;
 
     static PerFrame create(int index, VulkanDevice &device,
-                           VulkanSwapchain &swapchain,
+                           const VulkanSwapchain &swapchain,
                            std::shared_ptr<VulkanAllocator> allocator);
 };
 

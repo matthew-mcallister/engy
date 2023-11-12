@@ -45,3 +45,33 @@ VulkanImage VulkanAllocator::create_image(
                        image_create_info.extent, image_create_info.mipLevels,
                        image_create_info.arrayLayers, image_create_info.format);
 }
+
+vk::ImageAspectFlags all_aspects(vk::Format format) {
+    switch (format) {
+    case vk::Format::eD16Unorm:
+    case vk::Format::eD32Sfloat:
+        return vk::ImageAspectFlagBits::eDepth;
+    case vk::Format::eD16UnormS8Uint:
+    case vk::Format::eD24UnormS8Uint:
+    case vk::Format::eD32SfloatS8Uint:
+        return vk::ImageAspectFlagBits::eDepth |
+               vk::ImageAspectFlagBits::eStencil;
+    default:
+        return vk::ImageAspectFlagBits::eColor;
+    }
+}
+
+vk::ImageView VulkanImage::create_view() {
+    vk::ImageViewCreateInfo info;
+    info.image = *m_image;
+    // XXX: Support other image types
+    info.viewType = vk::ImageViewType::e2D;
+    info.format = m_format;
+    info.subresourceRange.aspectMask = all_aspects(m_format);
+    info.subresourceRange.baseMipLevel = 0;
+    info.subresourceRange.levelCount = 1;
+    info.subresourceRange.baseArrayLayer = 0;
+    info.subresourceRange.layerCount = 1;
+    m_view = device()->createImageView(info, nullptr);
+    return **m_view;
+}

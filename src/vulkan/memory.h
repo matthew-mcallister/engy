@@ -2,6 +2,7 @@
 #define VULKAN_MEMORY_H_INCLUDED
 
 #include <memory>
+#include <optional>
 
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_raii.hpp>
@@ -76,8 +77,11 @@ public:
     }
     VulkanAllocation &operator=(const VulkanAllocation &other) = delete;
 
+    VulkanDevice &device() { return m_allocator->device(); }
+    const VulkanDevice &device() const { return m_allocator->device(); }
     vk::DeviceSize size() const { return m_info.size; }
-    void *data() const { return m_info.pMappedData; }
+    void *data() { return m_info.pMappedData; }
+    const void *data() const { return m_info.pMappedData; }
 };
 
 class VulkanBuffer : public VulkanAllocation {
@@ -103,6 +107,7 @@ public:
 
 class VulkanImage : VulkanAllocation {
     vk::raii::Image m_image;
+    std::optional<vk::raii::ImageView> m_view;
     vk::Extent3D m_extent;
     uint32_t m_mip_levels = 1;
     uint32_t m_array_layers = 1;
@@ -134,6 +139,13 @@ public:
     uint32_t mip_levels() const { return m_mip_levels; }
     uint32_t array_layers() const { return m_array_layers; }
     vk::Format format() const { return m_format; }
+    /// @brief If an image view has been created, returns it. Else
+    /// returns VK_NULL_HANDLE;
+    vk::ImageView view() const { return m_view ? **m_view : vk::ImageView{}; }
+
+    /// @brief Creates an image view if it does not already exist and
+    /// returns the image view.
+    vk::ImageView create_view();
 };
 
 #endif
