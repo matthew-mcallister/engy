@@ -13,6 +13,7 @@
 #include "math/scene.h"
 #include "math/vector.h"
 #include "mesh_builder.h"
+#include "render/fullscreen_pass.h"
 #include "vulkan/device.h"
 #include "vulkan/renderer.h"
 
@@ -94,9 +95,14 @@ Vector3 get_cursor_vector() {
     return vec3(vx, vy, 1).normalized();
 }
 
-Matrix4 get_projection() {
-    float aspect = static_cast<float>(WINDOW_WIDTH) / WINDOW_HEIGHT;
-    return scene::projection(FOVY, aspect, Z_NEAR, Z_FAR);
+Matrix4 get_projection(const VulkanSwapchain &swapchain) {
+    return scene::projection(FOVY, swapchain.aspect_ratio(), Z_NEAR, Z_FAR);
+}
+
+Vector4 get_viewport(const VulkanSwapchain &swapchain) {
+    auto tan_fovy = tanf(FOVY);
+    auto tan_fovx = tan_fovy * swapchain.aspect_ratio();
+    return vec4(swapchain.width(), swapchain.height(), tan_fovx, tan_fovy);
 }
 
 // clang-format off
@@ -124,7 +130,8 @@ void main_loop(SDL_Window *window) {
     auto device = VulkanDevice::create(window, 0, true);
     auto swapchain = VulkanSwapchain::create(device, vk::SwapchainKHR{});
     VulkanRenderer renderer{assets, std::move(device), std::move(swapchain)};
-    renderer.create_graphics_pipeline(assets);
+    renderer.create_graphics_pipeline();
+    SkyPass sky_pass{renderer};
 
     BlockRegistry registry = BlockRegistry::create();
     ChunkMap chunk_map;
@@ -178,9 +185,10 @@ void main_loop(SDL_Window *window) {
         std::chrono::duration<float> dt = now - start;
 
         renderer.begin_rendering();
-        auto proj = get_projection();
-        auto view = state.rig().reverse_transform();
-        ViewUniforms view_uniforms{proj, view};
+        auto proj = get_projection(renderer.swapchain());
+        auto viewport = get_viewport(renderer.swapchain());
+        auto view = state.rig().forward_transform();
+        ViewUniforms view_uniforms{viewport, proj, view.rigid_inverse(), view};
         renderer.update_uniforms(view_uniforms);
         renderer.begin_rendering_meshes();
         for (int i = I_MIN; i <= I_MAX; i++) {
@@ -191,6 +199,7 @@ void main_loop(SDL_Window *window) {
                 }
             }
         }
+        sky_pass.draw(renderer.commands());
         renderer.end_rendering();
         renderer.present();
     }

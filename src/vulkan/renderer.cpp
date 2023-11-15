@@ -83,15 +83,16 @@ PerFrame PerFrame::create(int index, VulkanDevice &device,
 }
 
 vk::raii::ShaderModule &
-VulkanRenderer::create_shader_module(std::span<const char> bytes) {
+VulkanRenderer::create_shader_module(const std::string &path) {
+    const auto &bytes = m_assets.load_blob(path);
     assert(bytes.size() % 4 == 0);
-    const std::span<const uint32_t> code2{(const uint32_t *)&bytes[0],
-                                          bytes.size() / 4};
+    const std::span<const uint32_t> code{(const uint32_t *)&bytes[0],
+                                         bytes.size() / 4};
     vk::ShaderModuleCreateInfo info;
-    info.setCode(code2);
+    info.setCode(code);
     auto module = m_device->createShaderModule(info, nullptr);
-    m_shaders.push_back(std::move(module));
-    return m_shaders[m_shaders.size() - 1];
+    auto entry = m_shaders.insert_or_assign(path, std::move(module)).first;
+    return entry->second;
 }
 
 vk::raii::DescriptorSetLayout &VulkanRenderer::create_set_layout() {
@@ -112,8 +113,10 @@ vk::raii::DescriptorSetLayout &VulkanRenderer::create_set_layout() {
 vk::raii::PipelineLayout &VulkanRenderer::create_pipeline_layout() {
     vk::DescriptorSetLayout texmap_layout = m_texture_map.heap().layout();
     vk::DescriptorSetLayout uniform_layout = *create_set_layout();
-    std::array<vk::DescriptorSetLayout, 2> layouts = {texmap_layout,
-                                                      uniform_layout};
+    std::array<vk::DescriptorSetLayout, 2> layouts = {
+        uniform_layout,
+        texmap_layout,
+    };
     vk::PipelineLayoutCreateInfo info;
     info.setSetLayouts(layouts);
     auto layout = m_device->createPipelineLayout(info, nullptr);
@@ -122,17 +125,15 @@ vk::raii::PipelineLayout &VulkanRenderer::create_pipeline_layout() {
     return m_pipeline_layouts[m_pipeline_layouts.size() - 1];
 }
 
-vk::raii::Pipeline &VulkanRenderer::create_graphics_pipeline(AssetApi &assets) {
+vk::raii::Pipeline &VulkanRenderer::create_graphics_pipeline() {
     std::vector<vk::PipelineShaderStageCreateInfo> stages;
-    auto &vertex_shader =
-        create_shader_module(assets.load_blob("shaders/chunk.vertex.spv"));
+    auto &vertex_shader = create_shader_module("shaders/chunk.vertex.spv");
     vk::PipelineShaderStageCreateInfo vertex_stage;
     vertex_stage.stage = vk::ShaderStageFlagBits::eVertex;
     vertex_stage.module = *vertex_shader;
     vertex_stage.pName = "main";
     stages.push_back(vertex_stage);
-    auto &fragment_shader =
-        create_shader_module(assets.load_blob("shaders/chunk.fragment.spv"));
+    auto &fragment_shader = create_shader_module("shaders/chunk.fragment.spv");
     vk::PipelineShaderStageCreateInfo fragment_stage;
     fragment_stage.stage = vk::ShaderStageFlagBits::eFragment;
     fragment_stage.module = *fragment_shader;
@@ -357,7 +358,7 @@ void VulkanRenderer::bind_textures() {
     auto &cmds = frame.command_buffer;
     const auto &set = m_texture_map.heap().descriptor_set();
     cmds.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
-                            *m_pipeline_layouts[0], 0, set, nullptr);
+                            *m_pipeline_layouts[0], 1, set, nullptr);
 }
 
 void VulkanRenderer::update_uniforms(const ViewUniforms &view) {
@@ -378,7 +379,7 @@ void VulkanRenderer::bind_uniforms() {
     write.descriptorType = vk::DescriptorType::eUniformBuffer;
     write.setBufferInfo(buf_info);
     cmds.pushDescriptorSetKHR(vk::PipelineBindPoint::eGraphics,
-                              *m_pipeline_layouts[0], 1, write);
+                              *m_pipeline_layouts[0], 0, write);
 }
 
 void VulkanRenderer::begin_rendering_meshes() {

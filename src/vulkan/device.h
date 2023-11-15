@@ -110,7 +110,6 @@ public:
     vk::raii::Semaphore &image_acquire_semaphore() {
         return m_image_available_semaphore;
     }
-
     vk::Image &current_image() {
         assert(m_acquired_image != 0xffffffff);
         return m_images[m_acquired_image];
@@ -124,6 +123,9 @@ public:
     vk::Format image_format() const {
         return m_device.m_swapchain_settings.format;
     };
+    float aspect_ratio() const {
+        return static_cast<float>(m_width) / m_height;
+    }
 
     void acquire_next_image(uint64_t timeout);
     void present(vk::raii::Queue &queue,

@@ -15,6 +15,7 @@ executable(
     'src/math/matrix.cpp',
     'src/math/scene.cpp',
     'src/mesh_builder.cpp',
+    'src/render/fullscreen_pass.cpp',
     'src/vulkan/device.cpp',
     'src/vulkan/memory.cpp',
     'src/vulkan/mesh.cpp',

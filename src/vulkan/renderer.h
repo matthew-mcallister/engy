@@ -1,6 +1,9 @@
 #ifndef VULKAN_RENDERER_H_INCLUDED
 #define VULKAN_RENDERER_H_INCLUDED
 
+#include <unordered_map>
+#include <vector>
+
 #include <vk_mem_alloc.h>
 
 #include "asset.h"
@@ -14,8 +17,10 @@
 class Chunk;
 
 struct ViewUniforms {
+    Vector4 viewport;
     Matrix4 projection;
     Matrix4 view;
+    Matrix4 view_inverse;
 };
 
 struct Uniforms {
@@ -49,7 +54,7 @@ class VulkanRenderer {
     std::vector<PerFrame> m_per_frame;
     vk::raii::Semaphore m_present_semaphore;
 
-    std::vector<vk::raii::ShaderModule> m_shaders;
+    std::unordered_map<std::string, vk::raii::ShaderModule> m_shaders;
     std::vector<vk::raii::DescriptorSetLayout> m_set_layouts;
     std::vector<vk::raii::PipelineLayout> m_pipeline_layouts;
     std::vector<vk::raii::Pipeline> m_graphics_pipelines;
@@ -60,7 +65,6 @@ class VulkanRenderer {
     PerFrame &per_frame() { return m_per_frame[m_frame % m_per_frame.size()]; }
 
     vk::raii::DescriptorSetLayout &create_set_layout();
-    vk::raii::ShaderModule &create_shader_module(std::span<const char> bytes);
     vk::raii::PipelineLayout &create_pipeline_layout();
     void bind_textures();
     void bind_uniforms();
@@ -97,7 +101,14 @@ public:
     void present();
     void wait_idle();
 
-    vk::raii::Pipeline &create_graphics_pipeline(AssetApi &assets);
+    vk::raii::ShaderModule &create_shader_module(const std::string &name);
+    vk::raii::Pipeline &create_graphics_pipeline();
+
+    // XXX: Get rid of this crap through refactoring
+    vk::raii::DescriptorSetLayout &uniform_set_layout() {
+        return m_set_layouts[0];
+    }
+    vk::raii::CommandBuffer &commands() { return per_frame().command_buffer; }
 };
 
 #endif
