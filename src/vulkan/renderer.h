@@ -18,6 +18,7 @@ class Chunk;
 
 struct ViewUniforms {
     Vector4 viewport;
+    Vector4 sun_dir;
     Matrix4 projection;
     Matrix4 view;
     Matrix4 view_inverse;

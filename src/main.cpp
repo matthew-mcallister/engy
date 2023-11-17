@@ -105,6 +105,10 @@ Vector4 get_viewport(const VulkanSwapchain &swapchain) {
     return vec4(swapchain.width(), swapchain.height(), tan_fovx, tan_fovy);
 }
 
+Vector3 get_sun_dir() {
+    return vec3(-1, -1, -1).normalized();
+}
+
 // clang-format off
 const std::array<float, 36> VERTICES = {
     -0.5, -0.5, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0,
@@ -188,7 +192,9 @@ void main_loop(SDL_Window *window) {
         auto proj = get_projection(renderer.swapchain());
         auto viewport = get_viewport(renderer.swapchain());
         auto view = state.rig().forward_transform();
-        ViewUniforms view_uniforms{viewport, proj, view.rigid_inverse(), view};
+        auto sun_dir = get_sun_dir();
+        ViewUniforms view_uniforms{viewport, sun_dir, proj,
+                                   view.rigid_inverse(), view};
         renderer.update_uniforms(view_uniforms);
         renderer.begin_rendering_meshes();
         for (int i = I_MIN; i <= I_MAX; i++) {
