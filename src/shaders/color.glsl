@@ -4,9 +4,9 @@ vec3 RGB_WAVELENGTHS = vec3(5.95, 5.57, 4.83);
 vec3 intensity_to_XYZ(vec3 intensity) {
     // Tristimulus data pulled from the official CIE table
     mat3 cie = mat3(
-        1.1343,   0.720353, 0,
-        0.651901, 1,        0.000407,
-        0.055694, 0.279645, 0.64553
+        1.13430, 0.72035, 0.00000,
+        0.65190, 1.00000, 0.00041,
+        0.05569, 0.27965, 0.64553
     );
     return cie * intensity;
 }
