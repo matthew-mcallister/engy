@@ -9,7 +9,8 @@ GLSL_FILE_NAMES := \
 	fullscreen.vertex.glsl \
 	sky.fragment.glsl
 GLSL_INCLUDE_NAMES := \
-	common.glsl
+	common.glsl \
+	color.glsl
 GLSL_FILES := $(patsubst %,$(SHADER_SOURCE_DIR)/%,$(GLSL_FILE_NAMES))
 GLSL_INCLUDE_FILES := $(patsubst %,$(SHADER_SOURCE_DIR)/%,$(GLSL_INCLUDE_NAMES))
 SPV_FILES := $(patsubst %.glsl,$(SHADER_BUILD_DIR)/%.spv,$(GLSL_FILE_NAMES))

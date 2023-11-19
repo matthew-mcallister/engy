@@ -30,6 +30,8 @@ inline uint32_t format_size(PixelFormat format) {
 }
 
 inline vk::Format format_to_vk(PixelFormat format) {
+    // Sigh have to detect image color encoding from file. Cannot use
+    // sRGB for e.g. normal maps.
     switch (format) {
     case PixelFormat::R8:
         return vk::Format::eR8Srgb;
